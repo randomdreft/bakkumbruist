@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" width="1200" height="240">
+  <!-- Bakkum Bruist 2026 — Horizontaal wordmark voor headers -->
+
+  <!-- Bubbel-cluster links -->
+  <circle cx="65" cy="90" r="20" fill="none" stroke="#FF6B6B" stroke-width="4"/>
+  <circle cx="65" cy="90" r="6.5" fill="#FF6B6B"/>
+  <circle cx="120" cy="60" r="13" fill="none" stroke="#FF6B6B" stroke-width="3.5"/>
+  <circle cx="120" cy="60" r="4" fill="#FF6B6B"/>
+  <circle cx="155" cy="115" r="9" fill="#FF6B6B" opacity="0.85"/>
+  <circle cx="35" cy="145" r="5" fill="#FF6B6B" opacity="0.7"/>
+  <circle cx="170" cy="38" r="8" fill="#FFC93C"/>
+  <circle cx="105" cy="160" r="4" fill="#FF6B6B" opacity="0.6"/>
+
+  <!-- Wordmark - BAKKUM -->
+  <text x="240" y="125" font-family="'Trebuchet MS', 'Verdana', sans-serif"
+        font-weight="900" font-size="92" fill="#0F4C5C" letter-spacing="3">BAKKUM</text>
+  <!-- Wordmark - BRUIST (verschoven naar rechts, zeeblauw) -->
+  <text x="720" y="125" font-family="'Trebuchet MS', 'Verdana', sans-serif"
+        font-weight="900" font-size="92" fill="#1A91A8" letter-spacing="3">BRUIST</text>
+
+  <!-- Wave underline -->
+  <path d="M 240 158 Q 290 142 340 158 T 440 158 T 540 158 T 640 158 T 740 158 T 840 158 T 940 158 T 1040 158 T 1140 158"
+        fill="none" stroke="#1A91A8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 240 176 Q 290 162 340 176 T 440 176 T 540 176 T 640 176 T 740 176 T 840 176 T 940 176 T 1040 176 T 1140 176"
+        fill="none" stroke="#FFC93C" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+
+  <!-- Subtitle -->
+  <text x="240" y="215" font-family="'Trebuchet MS', 'Verdana', sans-serif"
+        font-weight="700" font-size="22" fill="#0F4C5C" letter-spacing="6">EIKENHORST · BUURTFEEST · 2026</text>
+</svg>

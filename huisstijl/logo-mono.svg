@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 240" width="1200" height="240">
+  <!-- Bakkum Bruist 2026 — Monochrome (voor zwart-wit prints) -->
+  <circle cx="65" cy="90" r="20" fill="none" stroke="#0F4C5C" stroke-width="4"/>
+  <circle cx="65" cy="90" r="6.5" fill="#0F4C5C"/>
+  <circle cx="120" cy="60" r="13" fill="none" stroke="#0F4C5C" stroke-width="3.5"/>
+  <circle cx="120" cy="60" r="4" fill="#0F4C5C"/>
+  <circle cx="155" cy="115" r="9" fill="#0F4C5C" opacity="0.85"/>
+  <circle cx="35" cy="145" r="5" fill="#0F4C5C" opacity="0.7"/>
+  <circle cx="170" cy="38" r="8" fill="#0F4C5C" opacity="0.7"/>
+
+  <text x="240" y="125" font-family="'Trebuchet MS', 'Verdana', sans-serif"
+        font-weight="900" font-size="92" fill="#0F4C5C" letter-spacing="3">BAKKUM BRUIST</text>
+
+  <path d="M 240 158 Q 290 142 340 158 T 440 158 T 540 158 T 640 158 T 740 158 T 840 158 T 940 158 T 1040 158 T 1140 158"
+        fill="none" stroke="#0F4C5C" stroke-width="5" stroke-linecap="round"/>
+
+  <text x="240" y="215" font-family="'Trebuchet MS', 'Verdana', sans-serif"
+        font-weight="700" font-size="22" fill="#0F4C5C" letter-spacing="6">EIKENHORST · BUURTFEEST · 2026</text>
+</svg>
