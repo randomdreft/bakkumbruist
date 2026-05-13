@@ -68,7 +68,7 @@ function getSheet() {
   var sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
   // Header aanmaken als sheet leeg is
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['timestamp', 'datum', 'huisnummer', 'email', 'user_agent']);
+    sheet.appendRow(['timestamp', 'voorkeursdatum', 'huisnummer', 'email', 'user_agent']);
   }
   return sheet;
 }
