@@ -5,7 +5,7 @@
     if (year) year.textContent = new Date().getFullYear();
 
     // ---------- Poll ----------
-    var WEBHOOK_URL = '<<GOOGLE_SHEET_WEBHOOK_URL>>';
+    var WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwlp1na6Bmla9B6iW7UEChWrizlAChcL3naAHRzsdu4d4odqXpIpSx2NBw8CGL3qs2A/exec';
     var CONTACT_EMAIL = 'slems_verenigd1q@icloud.com';
     var STORAGE_KEY = 'bakkumbruist-poll-vote';
 
