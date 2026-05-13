@@ -95,18 +95,17 @@ main > section:first-child { padding-top: 32px; }
 }
 
 /* Sectie met geaccentueerde achtergrond — breekt visueel uit de max-width
-   van main door een box-shadow-bleed, terwijl de content binnen blijft. */
+   van main door een box-shadow-bleed, terwijl de content binnen blijft.
+   Geen margins zodat opeenvolgende secties als kleurbanden doorlopen. */
 .section-accent {
     position: relative;
     background: var(--duinzand);
     box-shadow: 0 0 0 100vmax var(--duinzand);
     clip-path: inset(0 -100vmax);
-    margin: 32px -20px;
-    padding-left: 20px;
-    padding-right: 20px;
 }
-@media (min-width: 720px) {
-    .section-accent { margin: 48px -20px; }
+/* Callout binnen duinzand-sectie wordt wit zodat het visueel pop't */
+.section-accent .callout {
+    background: var(--wit);
 }
 
 /* Sectie-iconen naast h2-titels */
@@ -147,7 +146,8 @@ h2 { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
 .hero h1 { display: block; }   /* override flex die op alle h2/h1 zou kunnen vallen */
 
 .hero-badge {
-    display: inline-flex;
+    display: flex;
+    width: fit-content;
     align-items: center;
     gap: 8px;
     background: rgba(255, 107, 107, 0.12);
@@ -157,7 +157,7 @@ h2 { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
     font-size: 0.85em;
     font-weight: bold;
     letter-spacing: 0.02em;
-    margin-bottom: 20px;
+    margin: 0 auto 20px;
 }
 .hero-badge-dot {
     width: 8px;
@@ -174,10 +174,11 @@ h2 { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
 }
 
 .hero-logo {
+    display: block;
     width: auto;
     height: 180px;
     max-width: 100%;
-    margin-bottom: 20px;
+    margin: 0 auto 16px;
 }
 @media (min-width: 720px) {
     .hero-logo { height: 220px; }
@@ -347,7 +348,6 @@ footer {
     .hero-logo { height: 150px; }
     h1 { font-size: 30px; }
     .btn-big { padding: 16px 24px; font-size: 1em; }
-    .section-accent { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
 }
 
 /* ---------- Poll ---------- */
@@ -372,17 +372,18 @@ footer {
     display: flex;
     gap: 14px;
     padding: 16px 18px;
-    background: var(--wit);
-    border: 2px solid rgba(15, 76, 92, 0.18);
+    background: var(--duinzand);
+    border: 2px solid transparent;
     border-radius: 12px;
     cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 .poll-option:hover {
     border-color: var(--zeeblauw);
     transform: translateY(-1px);
 }
 .poll-option:has(input:checked) {
+    background: var(--wit);
     border-color: var(--zeeblauw);
     box-shadow: 0 4px 14px rgba(26, 145, 168, 0.18);
 }
