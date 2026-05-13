@@ -275,19 +275,19 @@ h2 { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
     padding: 0;
 }
 .planning-list li {
-    padding-left: 24px;
-    position: relative;
     break-inside: avoid;
     margin-bottom: 0.7em;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
 }
 .planning-list li::before {
     content: "•";
     color: var(--koraal);
     font-weight: bold;
     font-size: 1.4em;
-    position: absolute;
-    left: 0;
-    top: -4px;
+    line-height: 1;
+    flex-shrink: 0;
 }
 @media (min-width: 600px) {
     .planning-list { columns: 2; }
