@@ -56,7 +56,7 @@
                 : '<strong>Bedankt voor je stem!</strong> We laten via de WhatsApp-groep weten welke datum het wordt zodra alle stemmen binnen zijn.';
         }
         successBox.hidden = false;
-        successBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        successBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function escapeHtml(s) {
@@ -112,7 +112,8 @@
         }
         huisnummerInput.removeAttribute('aria-invalid');
 
-        if (email && !emailInput.checkValidity()) {
+        var emailOk = !email || (emailInput.checkValidity() && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email));
+        if (!emailOk) {
             emailInput.setAttribute('aria-invalid', 'true');
             showError('Het e-mailadres ziet er niet helemaal goed uit — kun je het checken?');
             emailInput.focus();
