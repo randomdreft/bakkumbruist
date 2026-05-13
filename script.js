@@ -66,7 +66,20 @@
     }
 
     function datumLabel(value) {
-        return DATUM_LABELS[value] || value;
+        if (!value) return '';
+        // Direct treffer (frontend stuurt ISO, dus updated/duplicate na nieuwe poll)
+        if (DATUM_LABELS[value]) return DATUM_LABELS[value];
+        // Sheets stuurt soms 'Sat Sep 12 2026 00:00:00 GMT+0200 ...' terug;
+        // probeer dat te parsen naar YYYY-MM-DD en opnieuw te matchen.
+        var d = new Date(value);
+        if (!isNaN(d.getTime())) {
+            var y = d.getFullYear();
+            var m = d.getMonth() + 1;
+            var day = d.getDate();
+            var iso = y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+            if (DATUM_LABELS[iso]) return DATUM_LABELS[iso];
+        }
+        return value;
     }
 
     function showDuplicatePrompt(huisnummer, existingDatum, newDatum) {

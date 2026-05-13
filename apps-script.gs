@@ -54,7 +54,7 @@ function doPost(e) {
         return jsonOut({ status: 'updated' });
       } else {
         var existingDatum = sheet.getRange(existingRow, 2).getValue();
-        return jsonOut({ status: 'duplicate', existing_datum: formatDatum(existingDatum) });
+        return jsonOut({ status: 'duplicate', existing_datum: String(existingDatum) });
       }
     }
 
@@ -106,17 +106,6 @@ function isValidHuisnummer(n) {
 
 function isValidDatum(d) {
   return ['2026-09-12', '2026-09-26'].indexOf(d) !== -1;
-}
-
-/** Sheets kan kolom B auto-parseren als Date — normaliseer terug naar YYYY-MM-DD. */
-function formatDatum(v) {
-  if (v instanceof Date) {
-    var y = v.getFullYear();
-    var m = (v.getMonth() + 1);
-    var d = v.getDate();
-    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
-  }
-  return String(v);
 }
 
 function jsonOut(obj) {
