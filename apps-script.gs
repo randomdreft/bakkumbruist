@@ -1,16 +1,17 @@
 /**
  * Bakkum Bruist 2026 — datum-poll webhook.
  *
- * Verwacht een POST met JSON body: { datum, huisnummer, email }
+ * Verwacht een POST met JSON body: { datum, huisnummer, email, update? }
  * Schrijft een rij naar het actieve sheet en geeft JSON terug.
  *
  * Response:
- *   { status: "ok" }         — stem opgeslagen
- *   { status: "duplicate" }  — dit huisnummer heeft al gestemd
- *   { status: "error", message: "..." } — iets ging mis
+ *   { status: "ok" }                                 — nieuwe stem opgeslagen
+ *   { status: "updated" }                            — bestaande stem overschreven
+ *   { status: "duplicate", existing_datum: "..." }   — huisnummer heeft al gestemd; vraag om bevestiging
+ *   { status: "error", message: "..." }              — iets ging mis
  *
  * Verwachte sheet-kolommen (rij 1, in deze volgorde):
- *   timestamp | datum | huisnummer | email | user_agent
+ *   timestamp | voorkeursdatum | huisnummer | email | user_agent
  */
 
 var SHEET_NAME = 'Stemmen';
@@ -31,6 +32,7 @@ function doPost(e) {
     var datum = String(body.datum || '').trim();
     var huisnummer = parseInt(body.huisnummer, 10);
     var email = String(body.email || '').trim();
+    var update = body.update === true;
     var userAgent = (e.parameter && e.parameter.ua) || '';
 
     if (!datum || !isValidDatum(datum)) {
@@ -41,8 +43,19 @@ function doPost(e) {
     }
 
     var sheet = getSheet();
-    if (huisnummerExists(sheet, huisnummer)) {
-      return jsonOut({ status: 'duplicate' });
+    var existingRow = findHuisnummerRow(sheet, huisnummer);
+
+    if (existingRow > 0) {
+      if (update) {
+        // Overschrijf bestaande rij; behoud kolom-volgorde A..E
+        sheet.getRange(existingRow, 1, 1, 5).setValues([[
+          new Date(), datum, huisnummer, email, userAgent
+        ]]);
+        return jsonOut({ status: 'updated' });
+      } else {
+        var existingDatum = sheet.getRange(existingRow, 2).getValue();
+        return jsonOut({ status: 'duplicate', existing_datum: String(existingDatum) });
+      }
     }
 
     sheet.appendRow([
@@ -73,14 +86,15 @@ function getSheet() {
   return sheet;
 }
 
-function huisnummerExists(sheet, huisnummer) {
+/** Geeft 1-based rij-index van bestaand huisnummer, of -1 als niet gevonden. */
+function findHuisnummerRow(sheet, huisnummer) {
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return false;
+  if (lastRow < 2) return -1;
   var values = sheet.getRange(2, 3, lastRow - 1, 1).getValues();  // kolom C
   for (var i = 0; i < values.length; i++) {
-    if (parseInt(values[i][0], 10) === huisnummer) return true;
+    if (parseInt(values[i][0], 10) === huisnummer) return i + 2;  // +2: skip header + 0-index
   }
-  return false;
+  return -1;
 }
 
 function isValidHuisnummer(n) {
