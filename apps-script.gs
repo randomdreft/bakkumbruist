@@ -91,7 +91,7 @@ function isValidHuisnummer(n) {
 }
 
 function isValidDatum(d) {
-  return ['2026-08-29', '2026-09-05', '2026-09-12', '2026-09-26'].indexOf(d) !== -1;
+  return ['2026-09-12', '2026-09-26'].indexOf(d) !== -1;
 }
 
 function jsonOut(obj) {
