@@ -54,7 +54,77 @@
         <section id="wanneer" aria-labelledby="wanneer-title">
             <h2 id="wanneer-title">Wanneer?</h2>
             <div class="callout">
-                <p>De definitieve datum prikken we samen met de straat. Vertrekpunt is <strong>zaterdag 12 september 2026</strong> (de traditionele Bakkum Bruist-datum). We doen een korte poll in de WhatsApp-groep voordat we hem vastleggen.</p>
+                <p>De definitieve datum prikken we samen met de straat. Vertrekpunt is <strong>zaterdag 12 september 2026</strong> (de traditionele Bakkum Bruist-datum), maar er liggen vier opties op tafel. <a href="#poll">Stem hieronder mee ↓</a> — dan weten we welke datum voor de meeste buren werkt.</p>
+            </div>
+        </section>
+
+        <section id="poll" aria-labelledby="poll-title">
+            <h2 id="poll-title">Stem mee op de datum</h2>
+            <p>We hebben vier datums op tafel. Geef ons even een seintje welke voor jou het beste werkt — dan prikken we ’m samen.</p>
+
+            <form id="poll-form" class="poll-form" novalidate>
+                <fieldset class="poll-options">
+                    <legend>Welke datum heeft jouw voorkeur?</legend>
+
+                    <label class="poll-option">
+                        <input type="radio" name="datum" value="2026-08-29" required>
+                        <span class="poll-option-body">
+                            <span class="poll-option-title">Zaterdag 29 augustus 2026</span>
+                            <span class="poll-option-desc">Laatste zaterdag van de zomervakantie-modus. De zomerschoolvakantie eindigt rond 16 augustus, dus iedereen is dan al een paar weken terug. Voordeel: meestal het beste weer, lange lichte avonden. Nadeel: nog niet iedereen is uit zomerstand, en het valt buiten het officiële Bakkum Bruist-weekend.</span>
+                        </span>
+                    </label>
+
+                    <label class="poll-option">
+                        <input type="radio" name="datum" value="2026-09-05" required>
+                        <span class="poll-option-body">
+                            <span class="poll-option-title">Zaterdag 5 september 2026</span>
+                            <span class="poll-option-desc">Eerste zaterdag van september. Nog steeds vaak mooi weer, en iedereen is terug van vakantie. Nadeel: valt niet op de traditionele Bakkum Bruist-datum, en sommigen hebben de eerste schoolweek-drukte nog.</span>
+                        </span>
+                    </label>
+
+                    <label class="poll-option">
+                        <input type="radio" name="datum" value="2026-09-12" required>
+                        <span class="poll-option-body">
+                            <span class="poll-option-title">Zaterdag 12 september 2026</span>
+                            <span class="poll-option-desc">De traditionele Bakkum Bruist-datum (tweede zaterdag van september). Dit is het vertrekpunt waarop de andere wijken van Bakkum ook mikken. Voordeel: synergie met de bredere Bakkum Bruist-traditie sinds 2016. Het weer kan wisselen, maar de avonden zijn nog redelijk zacht.</span>
+                        </span>
+                    </label>
+
+                    <label class="poll-option">
+                        <input type="radio" name="datum" value="2026-09-26" required>
+                        <span class="poll-option-body">
+                            <span class="poll-option-title">Zaterdag 26 september 2026</span>
+                            <span class="poll-option-desc">Landelijke Burendag. Voordeel: we kunnen een kleine subsidie aanvragen via het Burendag-fonds van het Oranje Fonds. Nadeel: het is dan al bijna oktober — de avonden worden snel kouder en het is eerder donker. Voor een feest dat tot in de avond doorloopt is dat een aandachtspunt.</span>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <p class="poll-hint">Hoe later in het jaar, hoe groter de kans op kou en regen — maar ook hoe meer mensen écht terug zijn van vakantie. Stem op de datum die voor jullie het beste past.</p>
+
+                <div class="poll-field">
+                    <label for="poll-huisnummer">Huisnummer Eikenhorst</label>
+                    <input type="number" id="poll-huisnummer" name="huisnummer" min="1" max="77" step="1" inputmode="numeric" required autocomplete="off">
+                </div>
+
+                <div class="poll-field">
+                    <label for="poll-email">E-mailadres <span class="poll-field-optional">(optioneel)</span></label>
+                    <input type="email" id="poll-email" name="email" placeholder="Optioneel — als je updates wilt ontvangen" autocomplete="email">
+                    <p class="poll-field-help">We gebruiken je e-mail alleen om je op de hoogte te houden van Bakkum Bruist 2026. Geen nieuwsbrief, geen doorverkoop.</p>
+                </div>
+
+                <div class="poll-error" id="poll-error" role="alert" aria-live="polite" hidden></div>
+
+                <button type="submit" class="btn btn-primary poll-submit" id="poll-submit">
+                    <span class="poll-submit-label">Stem versturen</span>
+                    <span class="poll-spinner" aria-hidden="true"></span>
+                </button>
+
+                <p class="poll-privacy">We bewaren huisnummer (en e-mailadres als je dat invult) alleen om te tellen en je op de hoogte te houden. Geen cookies, geen trackers.</p>
+            </form>
+
+            <div class="poll-success" id="poll-success" role="status" aria-live="polite" hidden>
+                <p><strong>Bedankt voor je stem!</strong> We laten via de WhatsApp-groep weten welke datum het wordt zodra alle stemmen binnen zijn.</p>
+                <p class="poll-success-cta"><a href="#meedoen">Sluit je aan bij de WhatsApp-groep ↓</a></p>
             </div>
         </section>
 
