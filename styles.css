@@ -350,128 +350,119 @@ footer {
     .btn-big { padding: 16px 24px; font-size: 1em; }
 }
 
-/* ---------- Poll ---------- */
-.poll-form { margin-top: 8px; }
-
-.poll-options {
-    border: none;
-    padding: 0;
-    margin: 0 0 20px;
-    display: flex;
+/* ---------- Datum-aankondiging ---------- */
+.datum-badge {
+    display: inline-flex;
     flex-direction: column;
-    gap: 12px;
+    align-items: center;
+    background: var(--zeeblauw);
+    color: var(--wit);
+    border-radius: 16px;
+    padding: 16px 32px;
+    margin: 4px 0 24px;
+    line-height: 1.1;
+    box-shadow: 0 6px 20px rgba(26, 145, 168, 0.3);
 }
-.poll-options legend {
+.datum-badge-dag {
+    font-size: 1em;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.9;
+}
+.datum-badge-getal {
+    font-size: 3.4em;
     font-weight: bold;
-    color: var(--diepblauw);
-    padding: 0;
-    margin-bottom: 8px;
+    margin: 2px 0;
+}
+.datum-badge-maand {
+    font-size: 1.1em;
+    font-weight: bold;
 }
 
-.poll-option {
-    display: flex;
-    gap: 14px;
-    padding: 16px 18px;
-    background: var(--duinzand);
-    border: 2px solid transparent;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
-}
-.poll-option:hover {
-    border-color: var(--zeeblauw);
-    transform: translateY(-1px);
-}
-.poll-option:has(input:checked) {
-    background: var(--wit);
-    border-color: var(--zeeblauw);
-    box-shadow: 0 4px 14px rgba(26, 145, 168, 0.18);
-}
-.poll-option input[type="radio"] {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    margin: 2px 0 0;
-    accent-color: var(--zeeblauw);
-    cursor: pointer;
-}
-.poll-option input[type="radio"]:focus-visible {
-    outline: 3px solid var(--zonnegeel);
-    outline-offset: 3px;
-    border-radius: 50%;
-}
-.poll-option-body {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.poll-option-title {
-    font-weight: bold;
-    color: var(--diepblauw);
-}
-.poll-option-desc {
-    font-size: 0.94em;
-    color: var(--diepblauw);
-    opacity: 0.85;
-    line-height: 1.5;
-}
-.poll-option-tradeoff {
+/* ---------- Activiteiten ---------- */
+.activiteiten-list {
     list-style: none;
     padding: 0;
-    margin: 8px 0 0;
+    margin: 0 0 1em;
+}
+.activiteiten-list li {
+    break-inside: avoid;
+    margin-bottom: 0.7em;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.92em;
+    align-items: baseline;
+    gap: 10px;
 }
-.poll-option-tradeoff li {
-    padding-left: 22px;
-    position: relative;
-    line-height: 1.45;
-    margin-bottom: 0;
-}
-.poll-option-tradeoff li::before {
-    position: absolute;
-    left: 0;
-    top: 0;
-    font-weight: bold;
-    font-size: 1.05em;
-}
-.poll-option-tradeoff li.pro::before {
-    content: "✓";
-    color: #2d7a2d;
-}
-.poll-option-tradeoff li.con::before {
-    content: "−";
+.activiteiten-list li::before {
+    content: "•";
     color: var(--koraal);
-    font-size: 1.3em;
-    top: -3px;
+    font-weight: bold;
+    font-size: 1.4em;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.voorbehoud {
+    font-size: 0.85em;
+    opacity: 0.7;
+    font-style: italic;
 }
 
-.poll-hint {
-    font-size: 0.94em;
+/* ---------- Openbare teller / thermometer ---------- */
+.teller-blok {
+    background: var(--duinzand);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 8px 0 28px;
+    border-left: 4px solid var(--zonnegeel);
+}
+.teller-tekst {
+    font-weight: bold;
+    color: var(--diepblauw);
+    margin: 0 0 10px;
+}
+.teller-tekst #teller-aantal {
+    color: var(--zeeblauw);
+    font-size: 1.25em;
+}
+.teller-balk {
+    background: rgba(15, 76, 92, 0.12);
+    border-radius: 100px;
+    height: 16px;
+    overflow: hidden;
+}
+.teller-vulling {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--zeeblauw), var(--zonnegeel));
+    border-radius: 100px;
+    transition: width 0.6s ease;
+}
+.teller-mijlpaal {
+    font-size: 0.88em;
     color: var(--diepblauw);
     opacity: 0.8;
-    font-style: italic;
-    margin: 0 0 24px;
+    margin: 10px 0 0;
 }
 
-.poll-field {
+/* ---------- Aanmeldformulier ---------- */
+.aanmeld-let-op { margin: 8px 0 24px; }
+.aanmeld-form { margin-top: 8px; }
+
+.form-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
     margin-bottom: 18px;
 }
-.poll-field label {
+.form-field label {
     font-weight: bold;
     color: var(--diepblauw);
 }
-.poll-field-optional {
+.form-field-optional {
     font-weight: normal;
     opacity: 0.7;
     font-size: 0.92em;
 }
-.poll-field input {
+.form-field input {
     font-family: inherit;
     font-size: 1em;
     padding: 12px 14px;
@@ -482,26 +473,161 @@ footer {
     width: 100%;
     transition: border-color 0.15s ease;
 }
-.poll-field input:focus {
+.form-field input:focus {
     outline: none;
     border-color: var(--zeeblauw);
     box-shadow: 0 0 0 3px rgba(26, 145, 168, 0.2);
 }
-.poll-field input:focus-visible {
+.form-field input:focus-visible {
     outline: 3px solid var(--zonnegeel);
     outline-offset: 2px;
 }
-.poll-field input[aria-invalid="true"] {
+.form-field input[aria-invalid="true"] {
     border-color: var(--koraal);
 }
-.poll-field-help {
+.form-field-help {
     font-size: 0.88em;
     color: var(--diepblauw);
     opacity: 0.75;
     margin: 0;
 }
 
-.poll-error {
+/* "Kom je?" keuze */
+.keuze-groep {
+    border: none;
+    padding: 0;
+    margin: 0 0 18px;
+}
+.keuze-groep legend {
+    font-weight: bold;
+    color: var(--diepblauw);
+    padding: 0;
+    margin-bottom: 8px;
+}
+.keuze-opties {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+@media (min-width: 480px) {
+    .keuze-opties { flex-direction: row; }
+    .keuze-optie { flex: 1; }
+}
+.keuze-optie {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--duinzand);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.keuze-optie:hover {
+    border-color: var(--zeeblauw);
+    transform: translateY(-1px);
+}
+.keuze-optie:has(input:checked) {
+    background: var(--wit);
+    border-color: var(--zeeblauw);
+    box-shadow: 0 4px 14px rgba(26, 145, 168, 0.18);
+}
+.keuze-optie input[type="radio"] {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    accent-color: var(--zeeblauw);
+    cursor: pointer;
+}
+.keuze-optie input[type="radio"]:focus-visible {
+    outline: 3px solid var(--zonnegeel);
+    outline-offset: 3px;
+    border-radius: 50%;
+}
+.keuze-optie-body {
+    font-weight: bold;
+    color: var(--diepblauw);
+}
+
+/* Aantallen + steppers */
+.aantallen-groep {
+    background: var(--duinzand);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 0 0 18px;
+}
+.aantallen-intro {
+    font-weight: bold;
+    color: var(--diepblauw);
+    margin: 0 0 12px;
+}
+.teller-rij {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.teller-rij:last-child { margin-bottom: 0; }
+.teller-rij label {
+    font-weight: normal;
+    color: var(--diepblauw);
+    flex: 1;
+}
+.stepper {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    background: var(--wit);
+    border: 2px solid rgba(15, 76, 92, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.stepper-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--wit);
+    color: var(--zeeblauw);
+    font-size: 1.4em;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    font-family: inherit;
+}
+.stepper-btn:hover { background: rgba(26, 145, 168, 0.1); }
+.stepper-btn:focus-visible {
+    outline: 3px solid var(--zonnegeel);
+    outline-offset: -3px;
+}
+.stepper input[type="number"] {
+    width: 48px;
+    height: 40px;
+    text-align: center;
+    border: none;
+    border-left: 1px solid rgba(15, 76, 92, 0.15);
+    border-right: 1px solid rgba(15, 76, 92, 0.15);
+    font-family: inherit;
+    font-size: 1.05em;
+    font-weight: bold;
+    color: var(--diepblauw);
+    background: var(--wit);
+    -moz-appearance: textfield;
+}
+.stepper input[type="number"]::-webkit-outer-spin-button,
+.stepper input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.stepper input[type="number"]:focus-visible {
+    outline: 3px solid var(--zonnegeel);
+    outline-offset: -3px;
+}
+
+/* Foutmelding, knop, privacy */
+.form-error {
     background: rgba(255, 107, 107, 0.12);
     border-left: 4px solid var(--koraal);
     padding: 12px 16px;
@@ -510,37 +636,11 @@ footer {
     margin-bottom: 16px;
     font-size: 0.95em;
 }
-.poll-error a { color: var(--koraal); }
-.poll-error p { margin: 0 0 0.5em; }
-.poll-error p:last-child { margin-bottom: 0; }
+.form-error a { color: var(--koraal); }
+.form-error p { margin: 0 0 0.5em; }
+.form-error p:last-child { margin-bottom: 0; }
 
-.poll-confirm-row {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin: 12px 0;
-}
-@media (min-width: 480px) {
-    .poll-confirm-row { flex-direction: row; align-items: center; }
-}
-.btn-link {
-    background: none;
-    border: none;
-    color: var(--diepblauw);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 1em;
-    padding: 8px 4px;
-}
-.btn-link:hover { color: var(--zeeblauw); }
-.poll-confirm-help {
-    font-size: 0.88em;
-    opacity: 0.85;
-}
-
-.poll-submit {
+.form-submit {
     border: none;
     cursor: pointer;
     font-family: inherit;
@@ -551,40 +651,40 @@ footer {
     gap: 10px;
 }
 @media (min-width: 480px) {
-    .poll-submit { width: auto; }
+    .form-submit { width: auto; }
 }
-.poll-submit:disabled {
+.form-submit:disabled {
     opacity: 0.7;
     cursor: progress;
     transform: none;
 }
-.poll-spinner {
+.form-spinner {
     display: none;
     width: 16px;
     height: 16px;
     border: 2px solid rgba(255,255,255,0.4);
     border-top-color: var(--wit);
     border-radius: 50%;
-    animation: poll-spin 0.7s linear infinite;
+    animation: form-spin 0.7s linear infinite;
 }
-.poll-submit.is-loading .poll-spinner { display: inline-block; }
-@keyframes poll-spin { to { transform: rotate(360deg); } }
+.form-submit.is-loading .form-spinner { display: inline-block; }
+@keyframes form-spin { to { transform: rotate(360deg); } }
 
-.poll-privacy {
+.form-privacy {
     margin-top: 16px;
     font-size: 0.85em;
     color: var(--diepblauw);
     opacity: 0.7;
 }
 
-.poll-success {
+/* Bevestiging na verzenden */
+.aanmeld-feedback {
     background: var(--duinzand);
     border-left: 4px solid #2d7a2d;
     padding: 20px 24px;
     border-radius: 0 12px 12px 0;
-    position: relative;
 }
-.poll-success::before {
+.aanmeld-feedback .feedback-msg::before {
     content: "✓";
     display: inline-block;
     width: 28px;
@@ -598,8 +698,11 @@ footer {
     margin-right: 10px;
     vertical-align: middle;
 }
-.poll-success p { display: inline; margin: 0; }
-.poll-success-cta {
-    display: block !important;
-    margin-top: 12px !important;
+.aanmeld-feedback .feedback-msg { margin: 0; }
+.aanmeld-feedback .feedback-msg strong { display: inline; }
+.feedback-cta {
+    margin: 14px 0 0;
+}
+.feedback-cta a {
+    font-weight: bold;
 }

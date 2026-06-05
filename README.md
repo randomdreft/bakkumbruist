@@ -1,82 +1,105 @@
 # Bakkum Bruist 2026 — Eikenhorst
 
-Statische single-page voor het buurtfeest op de Eikenhorst in Bakkum (gemeente Castricum). Inclusief richtinggevende datum-poll die stemmen naar een Google Sheet schrijft.
+Single-page site voor het buurtfeest op de Eikenhorst in Bakkum (gemeente Castricum), met een officieel aanmeldformulier en een beveiligde overzichtspagina voor de organisatie.
 
-**Live:** [bakkumbruist.nl](https://bakkumbruist.nl)
+**Live:** [bakkumbruist.nl](https://bakkumbruist.nl) · **Datum:** zaterdag 12 september 2026
 
 ## Tech
 
-Plain HTML/CSS/JS — geen build-step, geen framework, geen bundler, geen externe fonts of trackers. Vanille-JS doet een `fetch` naar een Google Apps Script-webhook voor de poll. Trebuchet MS met Verdana fallback. Open Graph-tags voor WhatsApp/iMessage previews.
+Plain HTML/CSS/JS aan de voorkant (geen framework, geen bundler, geen externe fonts of trackers) + een kleine **zero-dependency Node-server** (`server.js`) die zowel de statische bestanden serveert als de aanmeldingen verwerkt. Opslag is één JSON-bestand op een persistent Docker-volume — bewust simpel, in lijn met de tobygames-server in dezelfde `static-sites`-stack. Geen Google Sheets meer.
 
 ## Structuur
 
 ```
 .
-├── index.html         single page, alle secties
-├── styles.css         huisstijl + alternerende secties + poll-styling
-├── script.js          dynamisch jaartal + poll-formulier-logica
-├── apps-script.gs     Google Apps Script (webhook achter de poll)
-├── POLL_SETUP.md      Stap-voor-stap setup van de Google Sheet-backend
-├── favicon.png        afgeleid van logo-badge
-└── huisstijl/         logo-varianten (badge, horizontaal, mono — PNG en SVG)
+├── index.html         single page (hero, idee, datum, activiteiten, aanmeldformulier + teller, doe mee)
+├── styles.css         huisstijl + alternerende secties + formulier/teller-styling
+├── script.js          jaartal, openbare teller, aanmeld-logica (steppers, kom-je-toggle, verzenden)
+├── aanmeldingen.html  beveiligde overzichtspagina voor de organisatie (noindex)
+├── server.js          Node http-server: static files + API + opslag (geen npm-dependencies)
+├── Dockerfile         node:22-alpine, draait server.js op poort 80
+├── package.json       alleen een dev-script voor lokaal draaien
+├── favicon.png
+└── huisstijl/         logo-varianten
 ```
+
+## Backend & opslag
+
+De server (`server.js`) draait in de `bakkumbruist`-container (build-based) in `/opt/static-sites/docker-compose.yml`:
+
+- `/var/www/bakkumbruist` → `/static` (read-only) — de site
+- named volume `bakkumbruist-data` → `/data` — de aanmeldingen (`/data/aanmeldingen.json`)
+
+**Endpoints:**
+
+| Route | Methode | Auth | Doel |
+|-------|---------|------|------|
+| `/api/aanmelding` | POST | nee | Aanmelding opslaan/bijwerken (upsert per huisnummer) |
+| `/api/teller` | GET | nee | Publiek getal: aantal "komt = ja"-adressen (geen persoonsgegevens) |
+| `/aanmeldingen` | GET | **ja** | Overzichtspagina voor de organisatie |
+| `/api/aanmeldingen` | GET | **ja** | Volledige data + totalen + ontbrekende huisnummers (JSON) |
+| `/api/aanmeldingen.csv` | GET | **ja** | Download als CSV (`;`-gescheiden, UTF-8 BOM) |
+
+**Geldige huisnummers Eikenhorst** (hardcoded in `server.js` én `script.js`): oneven 1–77 en even 2–28, samen 53 adressen. De server-side check is de waterdichte laag.
+
+**Auth:** HTTP Basic Auth op alle `/aanmeldingen*`-routes (gebruiker + wachtwoord). Het wachtwoord komt uit de omgevingsvariabele `AANMELDINGEN_WACHTWOORD`, die in `/opt/static-sites/.env` (chmod 600) staat — **niet** in deze repo. Wachtwoord wijzigen:
+
+```bash
+sudo sed -i 's/^AANMELDINGEN_WACHTWOORD=.*/AANMELDINGEN_WACHTWOORD=NIEUW/' /opt/static-sites/.env
+cd /opt/static-sites && sudo docker compose up -d bakkumbruist
+```
+
+## Data bekijken, back-uppen, resetten
+
+```bash
+# Bekijken (op de host)
+sudo docker exec bakkumbruist cat /data/aanmeldingen.json
+
+# Back-up maken
+sudo docker exec bakkumbruist cat /data/aanmeldingen.json > ~/aanmeldingen-backup.json
+
+# Resetten (alles wissen)
+sudo docker exec bakkumbruist sh -c 'rm -f /data/aanmeldingen.json' && sudo docker restart bakkumbruist
+```
+
+De data zit in het Docker-volume `static-sites_bakkumbruist-data` en wordt door het reguliere TROGDOR-backupscript meegenomen via de docker-volumes (zie WEBSERVER_MANIFEST.md). De oude poll-data stond in een losse Google Sheet en is niet meer in gebruik; die mag weg.
 
 ## Secties (in volgorde)
 
-1. **Hero** — logo, "Stemming loopt — denk mee" badge, primaire CTA `Denk mee over de datum` + secundaire WhatsApp-knop
-2. **Wat is Bakkum Bruist?** *(duinzand)* — context over het buurtinitiatief
-3. **Stem mee op de datum** — vier-velden formulier (datum, huisnummer, optioneel email, submit) met dubbele-stem-detectie + wijzigingsflow
-4. **Wat staat er op de planning** *(duinzand)* — wat vaststaat
-5. **Wanneer?** — recap van de twee kandidaat-datums, link terug naar de poll
-6. **Doe mee** *(duinzand)* — comité-namen inline + WhatsApp-CTA + mailcontact
+1. **Hero** *(wit)* — logo, "De datum is geprikt"-badge, CTA `Meld je aan` + WhatsApp
+2. **Wat is Bakkum Bruist?** *(duinzand)*
+3. **De datum staat vast** *(wit)* — datum-badge 12 sep + uitleg waarom
+4. **Dit willen we sowieso doen** *(duinzand)* — activiteitenlijst (stormbaan onder voorbehoud)
+5. **Meld je aan** *(wit)* — openbare teller + aanmeldformulier
+6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
 
-Wit/duinzand alternatie geeft visueel ritme. Geaccentueerde secties hebben `class="section-accent"`, wat een full-width duinzand-bleed-effect oplevert via `box-shadow` + `clip-path`.
-
-## Huisstijl
-
-| Kleur | Hex | Gebruik |
-|-------|-----|---------|
-| Zeeblauw | `#1A91A8` | Primaire knoppen, links, h1, sectie-iconen |
-| Diepblauw | `#0F4C5C` | Body-tekst, h2/h3, secundaire knop-borders |
-| Zonnegeel | `#FFC93C` | Focus-states, scroll-hint underline |
-| Koraal | `#FF6B6B` | Badge, foutmeldingen, bullets, `con`-bullet in cards |
-| Duinzand | `#F4E9D8` | Achtergrond van geaccentueerde secties + datum-cards |
-| Wit | `#FFFFFF` | Achtergrond van neutrale secties |
-
-Sectie-iconen zijn Feather-style inline SVG (24x24, stroke 2, currentColor in zeeblauw).
-
-## Datum-poll
-
-Bewoners van de Eikenhorst kunnen stemmen op een van twee zaterdagen in september 2026. Geldige huisnummers: oneven 1–77 en even 2–28. Per huisnummer max één stem; bij dubbele inzending krijgt de gebruiker de keuze om de bestaande stem te overschrijven.
-
-**Backend:** Google Apps Script als webhook → Google Sheet `Bakkum Bruist 2026 — datum-poll`, kolommen: `timestamp | voorkeursdatum | huisnummer | email | user_agent`.
-
-**Setup:** zie [`POLL_SETUP.md`](./POLL_SETUP.md).
-
-**Bij wijziging van datum-opties:** update de array in `apps-script.gs` (`isValidDatum()`), de `DATUM_LABELS`-map in `script.js`, en de drie hardcoded HTML-blokken in `index.html` (`<label class="poll-option">` × N).
-
-## Lokaal werken
+## Lokaal draaien
 
 ```bash
-cd /var/www/bakkumbruist && python3 -m http.server 8000
-# open http://localhost:8000
+cd /var/www/bakkumbruist && npm run dev    # http://localhost:8000, data in ./.data
 ```
 
-Voor het mocken van de poll-fetch zonder Google Sheet, zie de instructies in [`POLL_SETUP.md`](./POLL_SETUP.md#lokaal-testen-zonder-echte-sheet).
+(De server leest `PORT`, `STATIC_DIR` en `DATA_DIR` uit de omgeving; in de container zijn dat 80, `/static` en `/data`.)
 
-## Hosting
+## Deploy-workflow
 
-Live op TROGDOR via de `bakkumbruist` nginx-container in de `static-sites`-stack (`/opt/static-sites/docker-compose.yml`). Bronmap: `/var/www/bakkumbruist/`. Bij elke wijziging:
+```bash
+# 1. Edit live in /var/www/bakkumbruist/
+# 2. Bij wijziging van server.js / Dockerfile: container herbouwen
+cd /opt/static-sites && sudo docker compose up -d --build bakkumbruist
+#    (puur HTML/CSS/JS wijzigen werkt direct — /static is een live read-only mount)
+# 3. Kopieer naar de repo en push (alles in het Nederlands)
+cp -r /var/www/bakkumbruist/* /home/randal/bakkumbruist-repo/
+cd /home/randal/bakkumbruist-repo && git add -A && git commit && git push
+```
 
-1. Edit live in `/var/www/bakkumbruist/`
-2. Kopieer gewijzigde bestanden naar `/home/randal/bakkumbruist-repo/`
-3. `git add`, `git commit`, `git push` — alles in het Nederlands, ook commit messages
+De daily update-cron (`trogdor-pull-updates.sh`) bouwt deze container automatisch mee, omdat `build_stack tobygames /opt/static-sites` de hele stack-map bouwt.
 
 ## Status
 
-- ✅ Site live
-- ✅ Datum-poll werkt (2 opties, dubbele-stem-check, wijzigingsflow)
-- ✅ Google Sheet-backend deployed
-- ⏳ **Datum nog niet geprikt** — poll loopt, comité kiest op basis van uitkomst
-- ⏳ **Aftelteller** "Nog X dagen tot het feest" — wachten op definitieve datum
-- ⏳ **Save-the-date-mode** — wanneer datum vaststaat: poll-sectie vervangen door een prominent "Zaterdag X september 2026"-blok
+- ✅ Datum geprikt: zaterdag 12 september 2026
+- ✅ Aanmeldformulier live (per huishouden, upsert, komt/komt-niet, leeftijdsgroepen)
+- ✅ Eigen opslag op de server (JSON op Docker-volume), Google Sheet uitgefaseerd
+- ✅ Openbare teller (alleen unieke "komt = ja"-adressen)
+- ✅ Beveiligde `/aanmeldingen` met totalen, ontbrekende huizen en CSV-export
+- ⏳ Bijdrage (tikkie) wordt later apart gecommuniceerd

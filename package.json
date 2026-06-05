@@ -1,0 +1,8 @@
+{
+  "name": "bakkumbruist",
+  "private": true,
+  "description": "Bakkum Bruist 2026 — site + aanmeld-backend (zero-dependency Node-server)",
+  "scripts": {
+    "dev": "PORT=8000 STATIC_DIR=. DATA_DIR=./.data node server.js"
+  }
+}

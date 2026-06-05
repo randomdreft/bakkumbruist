@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Aanmeldingen — Bakkum Bruist 2026</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 64px; }
+        .admin-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+        .admin-head img { height: 44px; }
+        .admin-totalen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+            margin: 20px 0 28px;
+        }
+        .totaal-kaart {
+            background: var(--duinzand);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        .totaal-kaart.accent { background: var(--zeeblauw); color: var(--wit); }
+        .totaal-kaart .getal { font-size: 1.9em; font-weight: bold; display: block; line-height: 1.1; }
+        .totaal-kaart .label { font-size: 0.85em; opacity: 0.85; }
+        .admin-acties { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+        th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid rgba(15,76,92,0.15); }
+        th { background: var(--duinzand); position: sticky; top: 0; }
+        td.num, th.num { text-align: right; }
+        tr.komt-nee td { opacity: 0.55; }
+        .tabel-scroll { overflow-x: auto; border: 1px solid rgba(15,76,92,0.15); border-radius: 10px; }
+        .pill { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.85em; font-weight: bold; }
+        .pill.ja { background: rgba(45,122,45,0.15); color: #2d7a2d; }
+        .pill.nee { background: rgba(255,107,107,0.18); color: var(--koraal); }
+        .ontbrekende { margin-top: 28px; }
+        .ontbrekende-nummers { font-family: monospace; line-height: 1.9; }
+        .ontbrekende-nummers span { display: inline-block; background: var(--duinzand); border-radius: 6px; padding: 2px 9px; margin: 0 4px 4px 0; }
+        .laden, .fout { padding: 20px; }
+        .fout { color: var(--koraal); }
+    </style>
+</head>
+<body>
+    <div class="admin-wrap">
+        <div class="admin-head">
+            <img src="huisstijl/logo-horizontaal.png" alt="Bakkum Bruist">
+            <h1 style="font-size:24px;margin:0;">Aanmeldingen 2026</h1>
+        </div>
+        <p class="muted small">Alleen voor de organisatie. Deze pagina staat op <code>noindex</code> en is wachtwoord-beveiligd.</p>
+
+        <div id="laden" class="laden">Laden…</div>
+        <div id="fout" class="fout" hidden></div>
+
+        <div id="inhoud" hidden>
+            <div class="admin-totalen" id="totalen"></div>
+
+            <div class="admin-acties">
+                <a class="btn btn-secondary" href="/api/aanmeldingen.csv">Download als CSV</a>
+                <button class="btn btn-secondary" type="button" id="ververs">Verversen</button>
+            </div>
+
+            <div class="tabel-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="num">Huis</th>
+                            <th>Komt</th>
+                            <th class="num">t/m 8</th>
+                            <th class="num">9–13</th>
+                            <th class="num">14–18</th>
+                            <th class="num">Volw.</th>
+                            <th class="num">Totaal</th>
+                            <th>Naam</th>
+                            <th>Contact</th>
+                            <th>Tijdstip</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rijen"></tbody>
+                </table>
+            </div>
+
+            <div class="ontbrekende">
+                <h2 style="font-size:20px;">Nog niet gemeld <span class="muted" id="ontbrekende-aantal"></span></h2>
+                <div class="ontbrekende-nummers" id="ontbrekende-nummers"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            'use strict';
+            var laden = document.getElementById('laden');
+            var fout = document.getElementById('fout');
+            var inhoud = document.getElementById('inhoud');
+
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+                });
+            }
+            function tijd(iso) {
+                var d = new Date(iso);
+                if (isNaN(d.getTime())) return esc(iso);
+                function p(n) { return (n < 10 ? '0' : '') + n; }
+                return p(d.getDate()) + '-' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+            }
+
+            function kaart(getal, label, accent) {
+                return '<div class="totaal-kaart' + (accent ? ' accent' : '') + '">' +
+                    '<span class="getal">' + getal + '</span>' +
+                    '<span class="label">' + label + '</span></div>';
+            }
+
+            function render(data) {
+                var t = data.totalen;
+                document.getElementById('totalen').innerHTML =
+                    kaart(t.adressen_komt, 'huizen komen', true) +
+                    kaart(t.personen, 'personen totaal', true) +
+                    kaart(t.tm8, 'kinderen t/m 8') +
+                    kaart(t.n9_13, 'kinderen 9–13') +
+                    kaart(t.n14_18, 'jongeren 14–18') +
+                    kaart(t.volwassenen, 'volwassenen') +
+                    kaart(t.adressen_komt_niet, 'komen niet');
+
+                var rows = data.aanmeldingen.map(function (a) {
+                    var tot = a.komt ? (a.aantal_tm8 + a.aantal_9_13 + a.aantal_14_18 + a.aantal_volwassenen) : '';
+                    return '<tr class="' + (a.komt ? 'komt-ja' : 'komt-nee') + '">' +
+                        '<td class="num">' + esc(a.huisnummer) + '</td>' +
+                        '<td><span class="pill ' + (a.komt ? 'ja' : 'nee') + '">' + (a.komt ? 'ja' : 'nee') + '</span></td>' +
+                        '<td class="num">' + (a.komt ? a.aantal_tm8 : '–') + '</td>' +
+                        '<td class="num">' + (a.komt ? a.aantal_9_13 : '–') + '</td>' +
+                        '<td class="num">' + (a.komt ? a.aantal_14_18 : '–') + '</td>' +
+                        '<td class="num">' + (a.komt ? a.aantal_volwassenen : '–') + '</td>' +
+                        '<td class="num"><strong>' + tot + '</strong></td>' +
+                        '<td>' + esc(a.naam) + '</td>' +
+                        '<td>' + esc(a.contact) + '</td>' +
+                        '<td>' + tijd(a.timestamp) + '</td>' +
+                        '</tr>';
+                }).join('');
+                document.getElementById('rijen').innerHTML = rows ||
+                    '<tr><td colspan="10" class="muted" style="padding:20px;">Nog geen aanmeldingen.</td></tr>';
+
+                document.getElementById('ontbrekende-aantal').textContent =
+                    '(' + data.ontbrekende.length + ' van ' + data.totaal_adressen + ')';
+                document.getElementById('ontbrekende-nummers').innerHTML =
+                    data.ontbrekende.map(function (n) { return '<span>' + n + '</span>'; }).join('') ||
+                    '<em class="muted">Iedereen heeft gereageerd 🎉</em>';
+
+                laden.hidden = true;
+                inhoud.hidden = false;
+            }
+
+            function laad() {
+                laden.hidden = false;
+                fout.hidden = true;
+                inhoud.hidden = true;
+                fetch('/api/aanmeldingen', { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
+                    .then(function (res) {
+                        if (!res.ok) throw new Error('http ' + res.status);
+                        return res.json();
+                    })
+                    .then(render)
+                    .catch(function (e) {
+                        laden.hidden = true;
+                        fout.hidden = false;
+                        fout.textContent = 'Kon de aanmeldingen niet laden (' + e.message + '). Ververs de pagina.';
+                    });
+            }
+
+            document.getElementById('ververs').addEventListener('click', laad);
+            laad();
+        })();
+    </script>
+</body>
+</html>
