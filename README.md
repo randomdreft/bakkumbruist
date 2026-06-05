@@ -62,7 +62,7 @@ sudo docker exec bakkumbruist cat /data/aanmeldingen.json > ~/aanmeldingen-backu
 sudo docker exec bakkumbruist sh -c 'rm -f /data/aanmeldingen.json' && sudo docker restart bakkumbruist
 ```
 
-De data zit in het Docker-volume `static-sites_bakkumbruist-data` en wordt door het reguliere TROGDOR-backupscript meegenomen via de docker-volumes (zie WEBSERVER_MANIFEST.md). De oude poll-data stond in een losse Google Sheet en is niet meer in gebruik; die mag weg.
+De data zit in het Docker-volume `static-sites_bakkumbruist-data`. Het TROGDOR-backupscript (`/usr/local/sbin/trogdor-backup.sh`, dagelijks 03:00) dumpt `aanmeldingen.json` als `content/bakkumbruist-aanmeldingen.json` in de dagelijkse backup (GFS-retentie, daarna naar de NAS). De oude poll-data stond in een losse Google Sheet en is niet meer in gebruik; die mag weg.
 
 ## Secties (in volgorde)
 
