@@ -36,8 +36,10 @@ const GELDIGE_HUISNUMMERS = (function () {
 const TOTAAL_ADRESSEN = GELDIGE_HUISNUMMERS.size; // 53
 
 // --- Opslag ---
-let aanmeldingen = []; // [{ timestamp, huisnummer, komt, aantal_tm8, aantal_9_13, aantal_14_18, aantal_volwassenen, naam, contact }]
-let mondeling = [];    // [{ huisnummer, timestamp, opmerking }] — door de organisatie mondeling afgemeld
+// Eén lijst met alle reacties. `bron` is 'formulier' (via de site) of
+// 'mondeling' (door de organisatie als afmelding gemarkeerd). Mondelinge
+// afmeldingen zijn gewoon komt:false-records — geen aparte boekhouding.
+let aanmeldingen = []; // [{ timestamp, huisnummer, komt, aantal_*, naam, contact, bron }]
 
 function loadJsonArray(file) {
   try {
@@ -53,7 +55,31 @@ function loadJsonArray(file) {
 
 function loadData() {
   aanmeldingen = loadJsonArray(DATA_FILE);
-  mondeling = loadJsonArray(MONDELING_FILE);
+  migreerMondeling();
+}
+
+// Eenmalige migratie: het oude losse mondeling.json invouwen in de
+// hoofdlijst als komt:false-records, daarna het bestand opruimen.
+function migreerMondeling() {
+  const oud = loadJsonArray(MONDELING_FILE);
+  if (!oud.length) { try { fs.unlinkSync(MONDELING_FILE); } catch (e) { /* bestond niet */ } return; }
+  let gewijzigd = false;
+  for (const m of oud) {
+    const hn = parseInt(m.huisnummer, 10);
+    if (!GELDIGE_HUISNUMMERS.has(hn)) continue;
+    if (aanmeldingen.some((a) => a.huisnummer === hn)) continue;
+    aanmeldingen.push({
+      timestamp: m.timestamp || new Date().toISOString(),
+      huisnummer: hn, komt: false,
+      aantal_tm8: 0, aantal_9_13: 0, aantal_14_18: 0, aantal_volwassenen: 0,
+      naam: '', contact: '', bron: 'mondeling',
+    });
+    gewijzigd = true;
+  }
+  if (gewijzigd) {
+    try { saveData(); } catch (e) { console.error('Migratie opslaan mislukt:', e.message); }
+  }
+  try { fs.unlinkSync(MONDELING_FILE); } catch (e) { /* al weg */ }
 }
 
 function saveJsonArray(file, data) {
@@ -65,7 +91,6 @@ function saveJsonArray(file, data) {
 }
 
 function saveData() { saveJsonArray(DATA_FILE, aanmeldingen); }
-function saveMondeling() { saveJsonArray(MONDELING_FILE, mondeling); }
 
 // --- Helpers ---
 function readBody(req) {
@@ -166,6 +191,7 @@ function handleAanmelding(req, res) {
       aantal_volwassenen: volw,
       naam: naam,
       contact: contact,
+      bron: 'formulier',
     };
 
     // Eén aanmelding per huisnummer → upsert (nieuwste is geldend).
@@ -199,17 +225,14 @@ function handleTeller(res) {
 // --- GET /api/aanmeldingen (beveiligd) ---
 function handleAdminData(res) {
   const aangemeld = aanmeldingen.filter((a) => a.komt === true).length;
-  const afgemeld_digitaal = aanmeldingen.filter((a) => a.komt === false).length;
-  const afgemeld_mondeling = mondeling.length;
+  const afgemeld = aanmeldingen.filter((a) => a.komt === false).length;
 
   const totalen = {
     // 3-staten-telling — telt altijd op tot totaal_adressen
     aangemeld: aangemeld,
-    afgemeld: afgemeld_digitaal + afgemeld_mondeling,
-    afgemeld_digitaal: afgemeld_digitaal,
-    afgemeld_mondeling: afgemeld_mondeling,
-    gereageerd: aangemeld + afgemeld_digitaal + afgemeld_mondeling,
-    onbekend: TOTAAL_ADRESSEN - aangemeld - afgemeld_digitaal - afgemeld_mondeling,
+    afgemeld: afgemeld,
+    gereageerd: aangemeld + afgemeld,
+    onbekend: TOTAAL_ADRESSEN - aangemeld - afgemeld,
     // personen-statistiek (alleen van wie komt)
     tm8: 0, n9_13: 0, n14_18: 0, volwassenen: 0, personen: 0,
   };
@@ -222,48 +245,45 @@ function handleAdminData(res) {
   }
   totalen.personen = totalen.tm8 + totalen.n9_13 + totalen.n14_18 + totalen.volwassenen;
 
-  // Huisnummers die echt nog niets hebben laten horen
-  // (niet via formulier én niet mondeling afgemeld).
+  // Huisnummers die nog niets hebben laten horen.
   const gemeld = new Set(aanmeldingen.map((a) => a.huisnummer));
-  const mondelingSet = new Set(mondeling.map((m) => m.huisnummer));
   const ontbrekende = [...GELDIGE_HUISNUMMERS]
-    .filter((n) => !gemeld.has(n) && !mondelingSet.has(n))
+    .filter((n) => !gemeld.has(n))
     .sort((x, y) => x - y);
 
   const lijst = aanmeldingen.slice().sort((x, y) => x.huisnummer - y.huisnummer);
-  const mondelingLijst = mondeling.slice().sort((x, y) => x.huisnummer - y.huisnummer);
 
   json(res, 200, {
     aanmeldingen: lijst,
-    mondeling: mondelingLijst,
     totalen: totalen,
     ontbrekende: ontbrekende,
     totaal_adressen: TOTAAL_ADRESSEN,
   });
 }
 
-// --- POST /api/mondeling (beveiligd) — markeer adres als mondeling afgemeld ---
+// --- POST /api/mondeling (beveiligd) — markeer adres als afgemeld (mondeling) ---
+// Voegt een gewoon komt:false-record toe aan de hoofdlijst (bron 'mondeling').
 function handleMondelingPost(req, res) {
   readBody(req).then((data) => {
     const huisnummer = parseInt(data.huisnummer, 10);
     if (!Number.isInteger(huisnummer) || !GELDIGE_HUISNUMMERS.has(huisnummer)) {
       return json(res, 400, { error: 'ongeldig_huisnummer' });
     }
-    // Een adres dat al via het formulier reageerde, niet overschrijven.
+    // Een adres dat al reageerde, niet overschrijven.
     if (aanmeldingen.some((a) => a.huisnummer === huisnummer)) {
       return json(res, 409, { error: 'al_gereageerd' });
     }
 
-    const opmerking = (data.opmerking || '').toString().trim().slice(0, 200);
-    const record = { huisnummer: huisnummer, timestamp: new Date().toISOString(), opmerking: opmerking };
+    aanmeldingen.push({
+      timestamp: new Date().toISOString(),
+      huisnummer: huisnummer, komt: false,
+      aantal_tm8: 0, aantal_9_13: 0, aantal_14_18: 0, aantal_volwassenen: 0,
+      naam: '', contact: '', bron: 'mondeling',
+    });
 
-    const idx = mondeling.findIndex((m) => m.huisnummer === huisnummer);
-    if (idx >= 0) mondeling[idx] = record;
-    else mondeling.push(record);
-
-    try { saveMondeling(); }
+    try { saveData(); }
     catch (e) {
-      console.error('Opslaan mondeling mislukt:', e.message);
+      console.error('Opslaan mislukt:', e.message);
       return json(res, 500, { error: 'opslaan_mislukt' });
     }
     json(res, 200, { status: 'ok', huisnummer: huisnummer });
@@ -272,20 +292,21 @@ function handleMondelingPost(req, res) {
   });
 }
 
-// --- DELETE /api/mondeling (beveiligd) — maak mondeling-afmelding ongedaan ---
+// --- DELETE /api/mondeling (beveiligd) — maak mondelinge afmelding ongedaan ---
+// Verwijdert alleen records met bron 'mondeling' (formulier-reacties blijven staan).
 function handleMondelingDelete(req, res) {
   readBody(req).then((data) => {
     const huisnummer = parseInt(data.huisnummer, 10);
     if (!Number.isInteger(huisnummer)) {
       return json(res, 400, { error: 'ongeldig_huisnummer' });
     }
-    const idx = mondeling.findIndex((m) => m.huisnummer === huisnummer);
+    const idx = aanmeldingen.findIndex((a) => a.huisnummer === huisnummer && a.bron === 'mondeling');
     if (idx < 0) return json(res, 404, { error: 'niet_gevonden' });
-    mondeling.splice(idx, 1);
+    aanmeldingen.splice(idx, 1);
 
-    try { saveMondeling(); }
+    try { saveData(); }
     catch (e) {
-      console.error('Opslaan mondeling mislukt:', e.message);
+      console.error('Opslaan mislukt:', e.message);
       return json(res, 500, { error: 'opslaan_mislukt' });
     }
     json(res, 200, { status: 'ok', huisnummer: huisnummer });

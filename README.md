@@ -37,16 +37,16 @@ De server (`server.js`) draait in de `bakkumbruist`-container (build-based) in `
 | `/api/aanmelding` | POST | nee | Aanmelding opslaan/bijwerken (upsert per huisnummer) |
 | `/api/teller` | GET | nee | Publiek getal: aantal "komt = ja"-adressen (geen persoonsgegevens) |
 | `/aanmeldingen` | GET | **ja** | Dashboard voor de organisatie (todo-tracker + overzicht) |
-| `/api/aanmeldingen` | GET | **ja** | Volledige data + 3-staten-totalen + ontbrekende huisnummers + mondeling-lijst (JSON) |
+| `/api/aanmeldingen` | GET | **ja** | Volledige data + 3-staten-totalen + ontbrekende huisnummers (JSON) |
 | `/api/aanmeldingen.csv` | GET | **ja** | Download als CSV (`;`-gescheiden, UTF-8 BOM) |
-| `/api/mondeling` | POST | **ja** | Adres als "mondeling afgemeld" markeren (`{huisnummer}`) |
-| `/api/mondeling` | DELETE | **ja** | Mondeling-afmelding ongedaan maken (`{huisnummer}`) |
+| `/api/mondeling` | POST | **ja** | Adres als afgemeld markeren (`{huisnummer}`) — voegt een komt:false-record toe |
+| `/api/mondeling` | DELETE | **ja** | Mondelinge afmelding ongedaan maken (`{huisnummer}`) |
 
-### Dashboard & mondelinge afmeldingen
+### Dashboard & afmeldingen
 
-Het dashboard rekent met **drie statussen die altijd optellen tot 53**: *aangemeld* (komt = ja), *afgemeld* (komt = nee via formulier **plus** mondeling afgemeld) en *onbekend* (nog niets laten horen). Bovenaan staat een todo-tracker met die drie getallen + een gestapelde voortgangsbalk, zodat in één oogopslag zichtbaar is hoeveel adressen nog benaderd moeten worden.
+Het dashboard rekent met **drie statussen die altijd optellen tot 53**: *aangemeld* (komt = ja), *afgemeld* (komt = nee) en *onbekend* (nog niets laten horen). Bovenaan staat een todo-tracker met die drie getallen + een gestapelde voortgangsbalk, zodat in één oogopslag zichtbaar is hoeveel adressen nog benaderd moeten worden.
 
-Adressen die zich persoonlijk afmelden (niet via het formulier) markeert de organisatie met één klik in de lijst **Nog te benaderen**; dat schuift ze van *onbekend* naar *afgemeld*. Elke markering is met **ongedaan maken** terug te draaien. Deze data staat los in `/data/mondeling.json`, zodat de formulier-data zuiver blijft. Een adres dat al via het formulier reageerde, kan niet mondeling worden overschreven (HTTP 409).
+Adressen die zich persoonlijk afmelden (niet via het formulier) markeert de organisatie met één klik in de lijst **Nog te benaderen**; dat schuift ze van *onbekend* naar *afgemeld*. Zo'n markering wordt opgeslagen als een gewoon **komt:false-record** in dezelfde lijst (met een intern `bron: 'mondeling'`-vlaggetje) en verschijnt als *nee* bij **Alle reacties** — dus geen aparte boekhouding. Bij die rij staat **ongedaan maken** om de markering terug te draaien; gewone formulier-reacties zijn niet via die knop te verwijderen (HTTP 404). Een adres dat al reageerde kan niet opnieuw worden gemarkeerd (HTTP 409).
 
 **Geldige huisnummers Eikenhorst** (hardcoded in `server.js` én `script.js`): oneven 1–77 en even 2–28, samen 53 adressen. De server-side check is de waterdichte laag.
 
@@ -70,7 +70,7 @@ sudo docker exec bakkumbruist cat /data/aanmeldingen.json > ~/aanmeldingen-backu
 sudo docker exec bakkumbruist sh -c 'rm -f /data/aanmeldingen.json' && sudo docker restart bakkumbruist
 ```
 
-Naast `aanmeldingen.json` staat in hetzelfde volume `mondeling.json` (de mondelinge afmeldingen). Beide via `sudo docker exec bakkumbruist cat /data/<bestand>` te bekijken.
+Alle reacties (aanmeldingen, formulier-afmeldingen én mondelinge afmeldingen) staan in één bestand `aanmeldingen.json`. *(Het oude losse `mondeling.json` is bij het opstarten eenmalig in deze lijst gevouwen en daarna verwijderd.)*
 
 De data zit in het Docker-volume `static-sites_bakkumbruist-data`. Het TROGDOR-backupscript (`/usr/local/sbin/trogdor-backup.sh`, dagelijks 03:00) dumpt `aanmeldingen.json` als `content/bakkumbruist-aanmeldingen.json` in de dagelijkse backup (GFS-retentie, daarna naar de NAS). De oude poll-data stond in een losse Google Sheet en is niet meer in gebruik; die mag weg.
 
@@ -111,5 +111,5 @@ De daily update-cron (`trogdor-pull-updates.sh`) bouwt deze container automatisc
 - ✅ Aanmeldformulier live (per huishouden, upsert, komt/komt-niet, leeftijdsgroepen)
 - ✅ Eigen opslag op de server (JSON op Docker-volume), Google Sheet uitgefaseerd
 - ✅ Openbare teller (alleen unieke "komt = ja"-adressen)
-- ✅ Beveiligd dashboard `/aanmeldingen`: todo-tracker (aangemeld / afgemeld / onbekend), totalen, mondelinge afmeldingen (één klik, ongedaan te maken) en CSV-export
+- ✅ Beveiligd dashboard `/aanmeldingen`: todo-tracker (aangemeld / afgemeld / onbekend), totalen, mondelinge afmeldingen als gewone "nee" in de lijst (één klik, ongedaan te maken) en CSV-export
 - ⏳ Bijdrage (tikkie) wordt later apart gecommuniceerd

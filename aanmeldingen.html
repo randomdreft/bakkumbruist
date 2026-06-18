@@ -86,18 +86,11 @@
         .knop-afmeld:hover { background: var(--koraal); color: var(--wit); }
         .knop-afmeld:disabled { opacity: 0.5; cursor: default; }
 
-        /* mondeling-afgemeld lijst */
-        .mondeling-lijst { list-style: none; padding: 0; margin: 0; }
-        .mondeling-lijst li {
-            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-            padding: 9px 4px; border-bottom: 1px solid rgba(15,76,92,0.12);
-        }
-        .mondeling-lijst .nr { font-family: monospace; font-weight: bold; min-width: 2em; }
-        .mondeling-lijst .wanneer { font-size: 0.85em; }
+        /* ongedaan-maken-knop bij mondelinge afmeldingen in de tabel */
         .knop-undo {
-            margin-left: auto; border: none; cursor: pointer; font-family: inherit;
+            border: none; cursor: pointer; font-family: inherit;
             background: none; color: var(--zeeblauw); font-size: 0.85em; font-weight: bold;
-            text-decoration: underline; padding: 4px;
+            text-decoration: underline; padding: 4px 0;
         }
         .knop-undo:hover { color: var(--diepblauw); }
         .knop-undo:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
@@ -150,12 +143,8 @@
             <p class="muted small" style="margin-top:-6px;">Hebben nog niets laten horen. Klik op <strong>mondeling afgemeld</strong> als je van een adres persoonlijk hoorde dat ze niet komen.</p>
             <div class="onbekend-grid" id="onbekend-grid"></div>
 
-            <!-- mondeling afgemeld -->
-            <h2 class="sec">Mondeling afgemeld <span class="muted small" id="mondeling-aantal"></span></h2>
-            <ul class="mondeling-lijst" id="mondeling-lijst"></ul>
-
-            <!-- DETAIL: aanmeldingen via formulier -->
-            <h2 class="sec">Alle reacties via het formulier</h2>
+            <!-- DETAIL: alle reacties -->
+            <h2 class="sec">Alle reacties</h2>
             <div class="tabel-scroll">
                 <table>
                     <thead>
@@ -217,9 +206,7 @@
                 // --- tracker ---
                 document.getElementById('tracker').innerHTML =
                     statKaart(t.aangemeld, 'aangemeld', 'komen naar het feest', 'aangemeld') +
-                    statKaart(t.afgemeld, 'afgemeld',
-                        t.afgemeld_mondeling ? (t.afgemeld_digitaal + ' digitaal · ' + t.afgemeld_mondeling + ' mondeling') : 'komen niet',
-                        'afgemeld') +
+                    statKaart(t.afgemeld, 'afgemeld', 'komen niet', 'afgemeld') +
                     statKaart(t.onbekend, 'onbekend', 'nog geen reactie', 'onbekend');
 
                 // gestapelde balk
@@ -251,20 +238,19 @@
                     }).join('') ||
                     '<span class="leeg">Iedereen heeft gereageerd 🎉</span>';
 
-                // --- mondeling afgemeld ---
-                document.getElementById('mondeling-aantal').textContent =
-                    '(' + data.mondeling.length + ')';
-                document.getElementById('mondeling-lijst').innerHTML =
-                    data.mondeling.map(function (m) {
-                        return '<li><span class="nr">' + esc(m.huisnummer) + '</span>' +
-                            '<span class="wanneer muted">gemarkeerd ' + tijd(m.timestamp) + '</span>' +
-                            '<button class="knop-undo" type="button" data-undo="' + esc(m.huisnummer) + '">ongedaan maken</button></li>';
-                    }).join('') ||
-                    '<li class="leeg">Nog niemand mondeling afgemeld.</li>';
-
-                // --- detailtabel ---
+                // --- detailtabel: alle reacties (formulier + mondeling) ---
                 var rows = data.aanmeldingen.map(function (a) {
                     var tot = a.komt ? (a.aantal_tm8 + a.aantal_9_13 + a.aantal_14_18 + a.aantal_volwassenen) : '';
+                    // Mondeling gemarkeerde afmeldingen tonen geen naam/contact,
+                    // maar wel een knop om de markering ongedaan te maken.
+                    var naamCel, contactCel;
+                    if (a.bron === 'mondeling') {
+                        naamCel = '<em class="muted">mondeling afgemeld</em>';
+                        contactCel = '<button class="knop-undo" type="button" data-undo="' + esc(a.huisnummer) + '">ongedaan maken</button>';
+                    } else {
+                        naamCel = esc(a.naam);
+                        contactCel = esc(a.contact);
+                    }
                     return '<tr class="' + (a.komt ? 'komt-ja' : 'komt-nee') + '">' +
                         '<td class="num">' + esc(a.huisnummer) + '</td>' +
                         '<td><span class="pill ' + (a.komt ? 'ja' : 'nee') + '">' + (a.komt ? 'ja' : 'nee') + '</span></td>' +
@@ -273,13 +259,13 @@
                         '<td class="num">' + (a.komt ? a.aantal_14_18 : '–') + '</td>' +
                         '<td class="num">' + (a.komt ? a.aantal_volwassenen : '–') + '</td>' +
                         '<td class="num"><strong>' + tot + '</strong></td>' +
-                        '<td>' + esc(a.naam) + '</td>' +
-                        '<td>' + esc(a.contact) + '</td>' +
+                        '<td>' + naamCel + '</td>' +
+                        '<td>' + contactCel + '</td>' +
                         '<td>' + tijd(a.timestamp) + '</td>' +
                         '</tr>';
                 }).join('');
                 document.getElementById('rijen').innerHTML = rows ||
-                    '<tr><td colspan="10" class="muted" style="padding:20px;">Nog geen aanmeldingen via het formulier.</td></tr>';
+                    '<tr><td colspan="10" class="muted" style="padding:20px;">Nog geen reacties.</td></tr>';
 
                 laden.hidden = true;
                 inhoud.hidden = false;
