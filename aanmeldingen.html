@@ -8,24 +8,58 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .admin-wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 64px; }
+        .admin-wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 64px; }
         .admin-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
         .admin-head img { height: 44px; }
-        .admin-totalen {
+        h2.sec { font-size: 20px; margin: 34px 0 14px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+        /* --- Todo-tracker: 3 statussen die altijd optellen tot het totaal --- */
+        .tracker {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            margin: 20px 0 28px;
+            margin: 20px 0 16px;
         }
-        .totaal-kaart {
-            background: var(--duinzand);
-            border-radius: 12px;
-            padding: 14px 16px;
+        .stat-kaart {
+            border-radius: 14px;
+            padding: 18px 16px;
+            text-align: center;
+            border: 2px solid transparent;
         }
+        .stat-kaart .getal { font-size: 2.6em; font-weight: bold; display: block; line-height: 1; }
+        .stat-kaart .label { font-size: 0.95em; font-weight: bold; }
+        .stat-kaart .sub { font-size: 0.78em; opacity: 0.8; display: block; margin-top: 4px; min-height: 1em; }
+        .stat-kaart.aangemeld { background: rgba(45,122,45,0.12); border-color: rgba(45,122,45,0.4); color: #1f5a1f; }
+        .stat-kaart.afgemeld  { background: rgba(255,107,107,0.14); border-color: rgba(255,107,107,0.5); color: #b23b3b; }
+        .stat-kaart.onbekend  { background: var(--duinzand); border-color: rgba(15,76,92,0.2); color: var(--diepblauw); }
+
+        /* gestapelde voortgangsbalk */
+        .voortgang-wrap { margin: 6px 0 8px; }
+        .voortgang {
+            display: flex; height: 20px; border-radius: 100px; overflow: hidden;
+            background: rgba(15,76,92,0.12);
+        }
+        .voortgang span { display: block; height: 100%; transition: width 0.4s ease; }
+        .voortgang .v-aan { background: #2d7a2d; }
+        .voortgang .v-af  { background: var(--koraal); }
+        .voortgang-tekst { font-size: 0.9em; margin-top: 6px; }
+
+        /* personen-statistiek */
+        .personen-totalen {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 8px 0 4px;
+        }
+        .totaal-kaart { background: var(--duinzand); border-radius: 12px; padding: 12px 14px; }
         .totaal-kaart.accent { background: var(--zeeblauw); color: var(--wit); }
-        .totaal-kaart .getal { font-size: 1.9em; font-weight: bold; display: block; line-height: 1.1; }
-        .totaal-kaart .label { font-size: 0.85em; opacity: 0.85; }
-        .admin-acties { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
+        .totaal-kaart .getal { font-size: 1.7em; font-weight: bold; display: block; line-height: 1.1; }
+        .totaal-kaart .label { font-size: 0.82em; opacity: 0.88; }
+
+        .admin-acties { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 18px 0; }
+        .btn.btn-mini { padding: 7px 16px; font-size: 0.85em; }
+
+        /* tabel */
         table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
         th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid rgba(15,76,92,0.15); }
         th { background: var(--duinzand); position: sticky; top: 0; }
@@ -35,11 +69,48 @@
         .pill { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.85em; font-weight: bold; }
         .pill.ja { background: rgba(45,122,45,0.15); color: #2d7a2d; }
         .pill.nee { background: rgba(255,107,107,0.18); color: var(--koraal); }
-        .ontbrekende { margin-top: 28px; }
-        .ontbrekende-nummers { font-family: monospace; line-height: 1.9; }
-        .ontbrekende-nummers span { display: inline-block; background: var(--duinzand); border-radius: 6px; padding: 2px 9px; margin: 0 4px 4px 0; }
+
+        /* onbekend / nog te benaderen — actielijst */
+        .onbekend-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .onbekend-kaart {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--duinzand); border-radius: 10px; padding: 6px 8px 6px 12px;
+        }
+        .onbekend-kaart .nr { font-family: monospace; font-weight: bold; font-size: 1.05em; min-width: 1.6em; text-align: center; }
+        .knop-afmeld {
+            border: none; cursor: pointer; font-family: inherit;
+            background: rgba(255,107,107,0.15); color: #b23b3b;
+            border-radius: 8px; padding: 5px 10px; font-size: 0.8em; font-weight: bold;
+            white-space: nowrap; transition: background 0.12s ease;
+        }
+        .knop-afmeld:hover { background: var(--koraal); color: var(--wit); }
+        .knop-afmeld:disabled { opacity: 0.5; cursor: default; }
+
+        /* mondeling-afgemeld lijst */
+        .mondeling-lijst { list-style: none; padding: 0; margin: 0; }
+        .mondeling-lijst li {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 9px 4px; border-bottom: 1px solid rgba(15,76,92,0.12);
+        }
+        .mondeling-lijst .nr { font-family: monospace; font-weight: bold; min-width: 2em; }
+        .mondeling-lijst .wanneer { font-size: 0.85em; }
+        .knop-undo {
+            margin-left: auto; border: none; cursor: pointer; font-family: inherit;
+            background: none; color: var(--zeeblauw); font-size: 0.85em; font-weight: bold;
+            text-decoration: underline; padding: 4px;
+        }
+        .knop-undo:hover { color: var(--diepblauw); }
+        .knop-undo:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+
         .laden, .fout { padding: 20px; }
         .fout { color: var(--koraal); }
+        .leeg { color: var(--diepblauw); opacity: 0.7; font-style: italic; }
+
+        @media (max-width: 560px) {
+            .tracker { grid-template-columns: 1fr; }
+            .stat-kaart { display: flex; align-items: center; justify-content: space-between; text-align: left; padding: 14px 18px; }
+            .stat-kaart .getal { font-size: 2em; }
+        }
     </style>
 </head>
 <body>
@@ -54,13 +125,37 @@
         <div id="fout" class="fout" hidden></div>
 
         <div id="inhoud" hidden>
-            <div class="admin-totalen" id="totalen"></div>
 
-            <div class="admin-acties">
-                <a class="btn btn-secondary" href="/api/aanmeldingen.csv">Download als CSV</a>
-                <button class="btn btn-secondary" type="button" id="ververs">Verversen</button>
+            <!-- TODO-TRACKER: hoe ver staan we? -->
+            <div class="tracker" id="tracker"></div>
+            <div class="voortgang-wrap">
+                <div class="voortgang">
+                    <span class="v-aan" id="bar-aan"></span>
+                    <span class="v-af" id="bar-af"></span>
+                </div>
+                <div class="voortgang-tekst" id="voortgang-tekst"></div>
             </div>
 
+            <!-- PERSONEN -->
+            <h2 class="sec">Wie komen er <span class="muted small" id="personen-sub"></span></h2>
+            <div class="personen-totalen" id="personen"></div>
+
+            <div class="admin-acties">
+                <a class="btn btn-secondary btn-mini" href="/api/aanmeldingen.csv">Download als CSV</a>
+                <button class="btn btn-secondary btn-mini" type="button" id="ververs">Verversen</button>
+            </div>
+
+            <!-- TODO: nog te benaderen -->
+            <h2 class="sec">Nog te benaderen <span class="muted small" id="onbekend-aantal"></span></h2>
+            <p class="muted small" style="margin-top:-6px;">Hebben nog niets laten horen. Klik op <strong>mondeling afgemeld</strong> als je van een adres persoonlijk hoorde dat ze niet komen.</p>
+            <div class="onbekend-grid" id="onbekend-grid"></div>
+
+            <!-- mondeling afgemeld -->
+            <h2 class="sec">Mondeling afgemeld <span class="muted small" id="mondeling-aantal"></span></h2>
+            <ul class="mondeling-lijst" id="mondeling-lijst"></ul>
+
+            <!-- DETAIL: aanmeldingen via formulier -->
+            <h2 class="sec">Alle reacties via het formulier</h2>
             <div class="tabel-scroll">
                 <table>
                     <thead>
@@ -80,11 +175,6 @@
                     <tbody id="rijen"></tbody>
                 </table>
             </div>
-
-            <div class="ontbrekende">
-                <h2 style="font-size:20px;">Nog niet gemeld <span class="muted" id="ontbrekende-aantal"></span></h2>
-                <div class="ontbrekende-nummers" id="ontbrekende-nummers"></div>
-            </div>
         </div>
     </div>
 
@@ -94,6 +184,7 @@
             var laden = document.getElementById('laden');
             var fout = document.getElementById('fout');
             var inhoud = document.getElementById('inhoud');
+            var bezig = false;
 
             function esc(s) {
                 return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -107,7 +198,13 @@
                 return p(d.getDate()) + '-' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
             }
 
-            function kaart(getal, label, accent) {
+            function statKaart(getal, label, sub, klasse) {
+                return '<div class="stat-kaart ' + klasse + '">' +
+                    '<span class="getal">' + getal + '</span>' +
+                    '<div><span class="label">' + label + '</span>' +
+                    '<span class="sub">' + (sub || '') + '</span></div></div>';
+            }
+            function persKaart(getal, label, accent) {
                 return '<div class="totaal-kaart' + (accent ? ' accent' : '') + '">' +
                     '<span class="getal">' + getal + '</span>' +
                     '<span class="label">' + label + '</span></div>';
@@ -115,15 +212,57 @@
 
             function render(data) {
                 var t = data.totalen;
-                document.getElementById('totalen').innerHTML =
-                    kaart(t.adressen_komt, 'huizen komen', true) +
-                    kaart(t.personen, 'personen totaal', true) +
-                    kaart(t.tm8, 'kinderen t/m 8') +
-                    kaart(t.n9_13, 'kinderen 9–13') +
-                    kaart(t.n14_18, 'jongeren 14–18') +
-                    kaart(t.volwassenen, 'volwassenen') +
-                    kaart(t.adressen_komt_niet, 'komen niet');
+                var totaal = data.totaal_adressen;
 
+                // --- tracker ---
+                document.getElementById('tracker').innerHTML =
+                    statKaart(t.aangemeld, 'aangemeld', 'komen naar het feest', 'aangemeld') +
+                    statKaart(t.afgemeld, 'afgemeld',
+                        t.afgemeld_mondeling ? (t.afgemeld_digitaal + ' digitaal · ' + t.afgemeld_mondeling + ' mondeling') : 'komen niet',
+                        'afgemeld') +
+                    statKaart(t.onbekend, 'onbekend', 'nog geen reactie', 'onbekend');
+
+                // gestapelde balk
+                var pAan = totaal ? (t.aangemeld / totaal * 100) : 0;
+                var pAf = totaal ? (t.afgemeld / totaal * 100) : 0;
+                document.getElementById('bar-aan').style.width = pAan + '%';
+                document.getElementById('bar-af').style.width = pAf + '%';
+                document.getElementById('voortgang-tekst').innerHTML =
+                    '<strong>' + t.gereageerd + ' van ' + totaal + '</strong> adressen hebben gereageerd' +
+                    ' — nog <strong>' + t.onbekend + '</strong> te gaan.';
+
+                // --- personen ---
+                document.getElementById('personen-sub').textContent =
+                    '(' + t.aangemeld + ' ' + (t.aangemeld === 1 ? 'huis komt' : 'huizen komen') + ')';
+                document.getElementById('personen').innerHTML =
+                    persKaart(t.personen, 'personen totaal', true) +
+                    persKaart(t.tm8, 'kinderen t/m 8') +
+                    persKaart(t.n9_13, 'kinderen 9–13') +
+                    persKaart(t.n14_18, 'jongeren 14–18') +
+                    persKaart(t.volwassenen, 'volwassenen');
+
+                // --- nog te benaderen (onbekend) ---
+                document.getElementById('onbekend-aantal').textContent =
+                    '(' + data.ontbrekende.length + ')';
+                document.getElementById('onbekend-grid').innerHTML =
+                    data.ontbrekende.map(function (n) {
+                        return '<div class="onbekend-kaart"><span class="nr">' + n + '</span>' +
+                            '<button class="knop-afmeld" type="button" data-afmeld="' + n + '">mondeling afgemeld</button></div>';
+                    }).join('') ||
+                    '<span class="leeg">Iedereen heeft gereageerd 🎉</span>';
+
+                // --- mondeling afgemeld ---
+                document.getElementById('mondeling-aantal').textContent =
+                    '(' + data.mondeling.length + ')';
+                document.getElementById('mondeling-lijst').innerHTML =
+                    data.mondeling.map(function (m) {
+                        return '<li><span class="nr">' + esc(m.huisnummer) + '</span>' +
+                            '<span class="wanneer muted">gemarkeerd ' + tijd(m.timestamp) + '</span>' +
+                            '<button class="knop-undo" type="button" data-undo="' + esc(m.huisnummer) + '">ongedaan maken</button></li>';
+                    }).join('') ||
+                    '<li class="leeg">Nog niemand mondeling afgemeld.</li>';
+
+                // --- detailtabel ---
                 var rows = data.aanmeldingen.map(function (a) {
                     var tot = a.komt ? (a.aantal_tm8 + a.aantal_9_13 + a.aantal_14_18 + a.aantal_volwassenen) : '';
                     return '<tr class="' + (a.komt ? 'komt-ja' : 'komt-nee') + '">' +
@@ -140,13 +279,7 @@
                         '</tr>';
                 }).join('');
                 document.getElementById('rijen').innerHTML = rows ||
-                    '<tr><td colspan="10" class="muted" style="padding:20px;">Nog geen aanmeldingen.</td></tr>';
-
-                document.getElementById('ontbrekende-aantal').textContent =
-                    '(' + data.ontbrekende.length + ' van ' + data.totaal_adressen + ')';
-                document.getElementById('ontbrekende-nummers').innerHTML =
-                    data.ontbrekende.map(function (n) { return '<span>' + n + '</span>'; }).join('') ||
-                    '<em class="muted">Iedereen heeft gereageerd 🎉</em>';
+                    '<tr><td colspan="10" class="muted" style="padding:20px;">Nog geen aanmeldingen via het formulier.</td></tr>';
 
                 laden.hidden = true;
                 inhoud.hidden = false;
@@ -168,6 +301,42 @@
                         fout.textContent = 'Kon de aanmeldingen niet laden (' + e.message + '). Ververs de pagina.';
                     });
             }
+
+            // Markeer of de-markeer een mondelinge afmelding, daarna herladen.
+            function mondeling(huisnummer, methode) {
+                if (bezig) return;
+                bezig = true;
+                fetch('/api/mondeling', {
+                    method: methode,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ huisnummer: huisnummer })
+                }).then(function (res) {
+                    if (!res.ok) throw new Error('http ' + res.status);
+                    return res.json();
+                }).then(function () {
+                    bezig = false;
+                    laad();
+                }).catch(function (e) {
+                    bezig = false;
+                    alert('Mislukt (' + e.message + '). Probeer opnieuw.');
+                });
+            }
+
+            // Eén klik-handler voor de hele pagina (event delegation).
+            document.body.addEventListener('click', function (ev) {
+                var afmeld = ev.target.closest('[data-afmeld]');
+                if (afmeld) {
+                    afmeld.disabled = true;
+                    mondeling(parseInt(afmeld.getAttribute('data-afmeld'), 10), 'POST');
+                    return;
+                }
+                var undo = ev.target.closest('[data-undo]');
+                if (undo) {
+                    undo.disabled = true;
+                    mondeling(parseInt(undo.getAttribute('data-undo'), 10), 'DELETE');
+                    return;
+                }
+            });
 
             document.getElementById('ververs').addEventListener('click', laad);
             laad();
