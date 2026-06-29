@@ -13,10 +13,10 @@
         .admin-head img { height: 44px; }
         h2.sec { font-size: 20px; margin: 34px 0 14px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 
-        /* --- Todo-tracker: 3 statussen die altijd optellen tot het totaal --- */
+        /* --- Todo-tracker: 4 statussen die altijd optellen tot het totaal --- */
         .tracker {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 12px;
             margin: 20px 0 16px;
         }
@@ -30,6 +30,7 @@
         .stat-kaart .label { font-size: 0.95em; font-weight: bold; }
         .stat-kaart .sub { font-size: 0.78em; opacity: 0.8; display: block; margin-top: 4px; min-height: 1em; }
         .stat-kaart.aangemeld { background: rgba(45,122,45,0.12); border-color: rgba(45,122,45,0.4); color: #1f5a1f; }
+        .stat-kaart.misschien { background: rgba(255,201,60,0.18); border-color: rgba(255,201,60,0.65); color: #8a6a12; }
         .stat-kaart.afgemeld  { background: rgba(255,107,107,0.14); border-color: rgba(255,107,107,0.5); color: #b23b3b; }
         .stat-kaart.onbekend  { background: var(--duinzand); border-color: rgba(15,76,92,0.2); color: var(--diepblauw); }
 
@@ -41,6 +42,7 @@
         }
         .voortgang span { display: block; height: 100%; transition: width 0.4s ease; }
         .voortgang .v-aan { background: #2d7a2d; }
+        .voortgang .v-mis { background: var(--zonnegeel); }
         .voortgang .v-af  { background: var(--koraal); }
         .voortgang-tekst { font-size: 0.9em; margin-top: 6px; }
 
@@ -65,9 +67,11 @@
         th { background: var(--duinzand); position: sticky; top: 0; }
         td.num, th.num { text-align: right; }
         tr.komt-nee td { opacity: 0.55; }
+        tr.komt-misschien td { opacity: 0.8; }
         .tabel-scroll { overflow-x: auto; border: 1px solid rgba(15,76,92,0.15); border-radius: 10px; }
         .pill { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.85em; font-weight: bold; }
         .pill.ja { background: rgba(45,122,45,0.15); color: #2d7a2d; }
+        .pill.misschien { background: rgba(255,201,60,0.25); color: #8a6a12; }
         .pill.nee { background: rgba(255,107,107,0.18); color: var(--koraal); }
 
         /* onbekend / nog te benaderen — actielijst */
@@ -85,6 +89,14 @@
         }
         .knop-afmeld:hover { background: var(--koraal); color: var(--wit); }
         .knop-afmeld:disabled { opacity: 0.5; cursor: default; }
+        .knop-misschien {
+            border: none; cursor: pointer; font-family: inherit;
+            background: rgba(255,201,60,0.25); color: #8a6a12;
+            border-radius: 8px; padding: 5px 10px; font-size: 0.8em; font-weight: bold;
+            white-space: nowrap; transition: background 0.12s ease;
+        }
+        .knop-misschien:hover { background: var(--zonnegeel); color: var(--diepblauw); }
+        .knop-misschien:disabled { opacity: 0.5; cursor: default; }
 
         /* ongedaan-maken-knop bij mondelinge afmeldingen in de tabel */
         .knop-undo {
@@ -99,6 +111,9 @@
         .fout { color: var(--koraal); }
         .leeg { color: var(--diepblauw); opacity: 0.7; font-style: italic; }
 
+        @media (max-width: 720px) {
+            .tracker { grid-template-columns: repeat(2, 1fr); }
+        }
         @media (max-width: 560px) {
             .tracker { grid-template-columns: 1fr; }
             .stat-kaart { display: flex; align-items: center; justify-content: space-between; text-align: left; padding: 14px 18px; }
@@ -124,6 +139,7 @@
             <div class="voortgang-wrap">
                 <div class="voortgang">
                     <span class="v-aan" id="bar-aan"></span>
+                    <span class="v-mis" id="bar-mis"></span>
                     <span class="v-af" id="bar-af"></span>
                 </div>
                 <div class="voortgang-tekst" id="voortgang-tekst"></div>
@@ -140,7 +156,7 @@
 
             <!-- TODO: nog te benaderen -->
             <h2 class="sec">Nog te benaderen <span class="muted small" id="onbekend-aantal"></span></h2>
-            <p class="muted small" style="margin-top:-6px;">Hebben nog niets laten horen. Klik op <strong>mondeling afgemeld</strong> als je van een adres persoonlijk hoorde dat ze niet komen.</p>
+            <p class="muted small" style="margin-top:-6px;">Hebben nog niets laten horen. Hoorde je persoonlijk van een adres? Markeer het als <strong>afgemeld</strong> (komen niet) of <strong>misschien</strong>.</p>
             <div class="onbekend-grid" id="onbekend-grid"></div>
 
             <!-- DETAIL: alle reacties -->
@@ -206,17 +222,20 @@
                 // --- tracker ---
                 document.getElementById('tracker').innerHTML =
                     statKaart(t.aangemeld, 'aangemeld', 'komen naar het feest', 'aangemeld') +
+                    statKaart(t.misschien, 'misschien', 'komen mogelijk', 'misschien') +
                     statKaart(t.afgemeld, 'afgemeld', 'komen niet', 'afgemeld') +
                     statKaart(t.onbekend, 'onbekend', 'nog geen reactie', 'onbekend');
 
                 // gestapelde balk
                 var pAan = totaal ? (t.aangemeld / totaal * 100) : 0;
+                var pMis = totaal ? (t.misschien / totaal * 100) : 0;
                 var pAf = totaal ? (t.afgemeld / totaal * 100) : 0;
                 document.getElementById('bar-aan').style.width = pAan + '%';
+                document.getElementById('bar-mis').style.width = pMis + '%';
                 document.getElementById('bar-af').style.width = pAf + '%';
                 document.getElementById('voortgang-tekst').innerHTML =
-                    '<strong>' + t.gereageerd + ' van ' + totaal + '</strong> adressen hebben gereageerd' +
-                    ' — nog <strong>' + t.onbekend + '</strong> te gaan.';
+                    '<strong>' + t.gereageerd + ' van ' + totaal + '</strong> adressen in beeld' +
+                    ' — nog <strong>' + t.onbekend + '</strong> te benaderen.';
 
                 // --- personen ---
                 document.getElementById('personen-sub').textContent =
@@ -234,30 +253,37 @@
                 document.getElementById('onbekend-grid').innerHTML =
                     data.ontbrekende.map(function (n) {
                         return '<div class="onbekend-kaart"><span class="nr">' + n + '</span>' +
-                            '<button class="knop-afmeld" type="button" data-afmeld="' + n + '">mondeling afgemeld</button></div>';
+                            '<button class="knop-misschien" type="button" data-misschien="' + n + '">misschien</button>' +
+                            '<button class="knop-afmeld" type="button" data-afmeld="' + n + '">afgemeld</button></div>';
                     }).join('') ||
                     '<span class="leeg">Iedereen heeft gereageerd 🎉</span>';
 
                 // --- detailtabel: alle reacties (formulier + mondeling) ---
                 var rows = data.aanmeldingen.map(function (a) {
-                    var tot = a.komt ? (a.aantal_tm8 + a.aantal_9_13 + a.aantal_14_18 + a.aantal_volwassenen) : '';
-                    // Mondeling gemarkeerde afmeldingen tonen geen naam/contact,
-                    // maar wel een knop om de markering ongedaan te maken.
+                    var komtJa = a.komt === true;
+                    var komtMis = a.komt === 'misschien';
+                    var komtLabel = komtJa ? 'ja' : komtMis ? 'misschien' : 'nee';
+                    var komtKlasse = komtJa ? 'ja' : komtMis ? 'misschien' : 'nee';
+                    var rijKlasse = komtJa ? 'komt-ja' : komtMis ? 'komt-misschien' : 'komt-nee';
+                    var tot = komtJa ? (a.aantal_tm8 + a.aantal_9_13 + a.aantal_14_18 + a.aantal_volwassenen) : '';
+                    // Door de organisatie gemarkeerde adressen (afgemeld of misschien)
+                    // tonen geen naam/contact, maar wel een knop om de markering
+                    // ongedaan te maken.
                     var naamCel, contactCel;
                     if (a.bron === 'mondeling') {
-                        naamCel = '<em class="muted">mondeling afgemeld</em>';
+                        naamCel = '<em class="muted">' + (komtMis ? 'als misschien gemarkeerd' : 'mondeling afgemeld') + '</em>';
                         contactCel = '<button class="knop-undo" type="button" data-undo="' + esc(a.huisnummer) + '">ongedaan maken</button>';
                     } else {
                         naamCel = esc(a.naam);
                         contactCel = esc(a.contact);
                     }
-                    return '<tr class="' + (a.komt ? 'komt-ja' : 'komt-nee') + '">' +
+                    return '<tr class="' + rijKlasse + '">' +
                         '<td class="num">' + esc(a.huisnummer) + '</td>' +
-                        '<td><span class="pill ' + (a.komt ? 'ja' : 'nee') + '">' + (a.komt ? 'ja' : 'nee') + '</span></td>' +
-                        '<td class="num">' + (a.komt ? a.aantal_tm8 : '–') + '</td>' +
-                        '<td class="num">' + (a.komt ? a.aantal_9_13 : '–') + '</td>' +
-                        '<td class="num">' + (a.komt ? a.aantal_14_18 : '–') + '</td>' +
-                        '<td class="num">' + (a.komt ? a.aantal_volwassenen : '–') + '</td>' +
+                        '<td><span class="pill ' + komtKlasse + '">' + komtLabel + '</span></td>' +
+                        '<td class="num">' + (komtJa ? a.aantal_tm8 : '–') + '</td>' +
+                        '<td class="num">' + (komtJa ? a.aantal_9_13 : '–') + '</td>' +
+                        '<td class="num">' + (komtJa ? a.aantal_14_18 : '–') + '</td>' +
+                        '<td class="num">' + (komtJa ? a.aantal_volwassenen : '–') + '</td>' +
                         '<td class="num"><strong>' + tot + '</strong></td>' +
                         '<td>' + naamCel + '</td>' +
                         '<td>' + contactCel + '</td>' +
@@ -288,14 +314,15 @@
                     });
             }
 
-            // Markeer of de-markeer een mondelinge afmelding, daarna herladen.
-            function mondeling(huisnummer, methode) {
+            // Markeer of de-markeer een door de organisatie gezet adres
+            // (afgemeld / misschien), daarna herladen.
+            function mondeling(methode, body) {
                 if (bezig) return;
                 bezig = true;
                 fetch('/api/mondeling', {
                     method: methode,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ huisnummer: huisnummer })
+                    body: JSON.stringify(body)
                 }).then(function (res) {
                     if (!res.ok) throw new Error('http ' + res.status);
                     return res.json();
@@ -313,13 +340,19 @@
                 var afmeld = ev.target.closest('[data-afmeld]');
                 if (afmeld) {
                     afmeld.disabled = true;
-                    mondeling(parseInt(afmeld.getAttribute('data-afmeld'), 10), 'POST');
+                    mondeling('POST', { huisnummer: parseInt(afmeld.getAttribute('data-afmeld'), 10), komt: 'nee' });
+                    return;
+                }
+                var mis = ev.target.closest('[data-misschien]');
+                if (mis) {
+                    mis.disabled = true;
+                    mondeling('POST', { huisnummer: parseInt(mis.getAttribute('data-misschien'), 10), komt: 'misschien' });
                     return;
                 }
                 var undo = ev.target.closest('[data-undo]');
                 if (undo) {
                     undo.disabled = true;
-                    mondeling(parseInt(undo.getAttribute('data-undo'), 10), 'DELETE');
+                    mondeling('DELETE', { huisnummer: parseInt(undo.getAttribute('data-undo'), 10) });
                     return;
                 }
             });

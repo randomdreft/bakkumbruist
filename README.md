@@ -37,16 +37,18 @@ De server (`server.js`) draait in de `bakkumbruist`-container (build-based) in `
 | `/api/aanmelding` | POST | nee | Aanmelding opslaan/bijwerken (upsert per huisnummer) |
 | `/api/teller` | GET | nee | Publiek getal: aantal "komt = ja"-adressen (geen persoonsgegevens) |
 | `/aanmeldingen` | GET | **ja** | Dashboard voor de organisatie (todo-tracker + overzicht) |
-| `/api/aanmeldingen` | GET | **ja** | Volledige data + 3-staten-totalen + ontbrekende huisnummers (JSON) |
+| `/api/aanmeldingen` | GET | **ja** | Volledige data + 4-staten-totalen + ontbrekende huisnummers (JSON) |
 | `/api/aanmeldingen.csv` | GET | **ja** | Download als CSV (`;`-gescheiden, UTF-8 BOM) |
-| `/api/mondeling` | POST | **ja** | Adres als afgemeld markeren (`{huisnummer}`) — voegt een komt:false-record toe |
-| `/api/mondeling` | DELETE | **ja** | Mondelinge afmelding ongedaan maken (`{huisnummer}`) |
+| `/api/mondeling` | POST | **ja** | Adres door de organisatie markeren als *afgemeld* (default) of *misschien* (`{huisnummer, komt}`) |
+| `/api/mondeling` | DELETE | **ja** | Markering ongedaan maken (`{huisnummer}`) |
+
+> Auth-kolom = HTTP Basic Auth, **tenzij** het client-IP in `AANMELDINGEN_IP_WHITELIST` staat (zie hieronder).
 
 ### Dashboard & afmeldingen
 
-Het dashboard rekent met **drie statussen die altijd optellen tot 53**: *aangemeld* (komt = ja), *afgemeld* (komt = nee) en *onbekend* (nog niets laten horen). Bovenaan staat een todo-tracker met die drie getallen + een gestapelde voortgangsbalk, zodat in één oogopslag zichtbaar is hoeveel adressen nog benaderd moeten worden.
+Het dashboard rekent met **vier statussen die altijd optellen tot 53**: *aangemeld* (komt = ja), *misschien* (komt mogelijk), *afgemeld* (komt = nee) en *onbekend* (nog niets laten horen). Bovenaan staat een todo-tracker met die vier getallen + een gestapelde voortgangsbalk (groen = aangemeld, geel = misschien, koraal = afgemeld), zodat in één oogopslag zichtbaar is hoeveel adressen nog benaderd moeten worden.
 
-Adressen die zich persoonlijk afmelden (niet via het formulier) markeert de organisatie met één klik in de lijst **Nog te benaderen**; dat schuift ze van *onbekend* naar *afgemeld*. Zo'n markering wordt opgeslagen als een gewoon **komt:false-record** in dezelfde lijst (met een intern `bron: 'mondeling'`-vlaggetje) en verschijnt als *nee* bij **Alle reacties** — dus geen aparte boekhouding. Bij die rij staat **ongedaan maken** om de markering terug te draaien; gewone formulier-reacties zijn niet via die knop te verwijderen (HTTP 404). Een adres dat al reageerde kan niet opnieuw worden gemarkeerd (HTTP 409).
+Adressen waarvan de organisatie persoonlijk iets hoorde (niet via het formulier) markeert ze met één klik in de lijst **Nog te benaderen** — als **afgemeld** of als **misschien**; dat schuift ze van *onbekend* naar die status. Zo'n markering wordt opgeslagen als een gewoon record in dezelfde lijst (met een intern `bron: 'mondeling'`-vlaggetje; `komt` is `false` voor afgemeld of `'misschien'`) en verschijnt met de bijbehorende pill bij **Alle reacties** — dus geen aparte boekhouding. Bij die rij staat **ongedaan maken** om de markering terug te draaien; gewone formulier-reacties zijn niet via die knop te verwijderen (HTTP 404) en worden ook nooit overschreven door een markering (HTTP 409). *(De personen-statistiek telt alleen wie zéker komt; een misschien telt dus nog niet mee in de aantallen.)*
 
 **Geldige huisnummers Eikenhorst** (hardcoded in `server.js` én `script.js`): oneven 1–77 en even 2–28, samen 53 adressen. De server-side check is de waterdichte laag.
 
@@ -56,6 +58,16 @@ Adressen die zich persoonlijk afmelden (niet via het formulier) markeert de orga
 sudo sed -i 's/^AANMELDINGEN_WACHTWOORD=.*/AANMELDINGEN_WACHTWOORD=NIEUW/' /opt/static-sites/.env
 cd /opt/static-sites && sudo docker compose up -d bakkumbruist
 ```
+
+**IP-whitelist (geen wachtwoord nodig):** vanaf vertrouwde IP's mag het dashboard zónder wachtwoord. Zet ze komma-gescheiden — los IP of CIDR-range, IPv4 én IPv6 door elkaar — in `AANMELDINGEN_IP_WHITELIST` in `/opt/static-sites/.env`:
+
+```bash
+# voorbeeld (documentatie-ranges; de echte staan in .env, niet in deze repo)
+AANMELDINGEN_IP_WHITELIST=203.0.113.5,2001:db8::/48
+cd /opt/static-sites && sudo docker compose up -d bakkumbruist   # geen --build nodig
+```
+
+De server leest het echte client-IP uit de `X-Real-IP`-header die NPM zet (gelijk aan `$remote_addr`, dus niet door de bezoeker te spoofen). Staat dat IP in de lijst, dan wordt Basic Auth overgeslagen; anders geldt gewoon het wachtwoord. Leeg laten = altijd wachtwoord.
 
 ## Data bekijken, back-uppen, resetten
 
@@ -111,5 +123,6 @@ De daily update-cron (`trogdor-pull-updates.sh`) bouwt deze container automatisc
 - ✅ Aanmeldformulier live (per huishouden, upsert, komt/komt-niet, leeftijdsgroepen)
 - ✅ Eigen opslag op de server (JSON op Docker-volume), Google Sheet uitgefaseerd
 - ✅ Openbare teller (alleen unieke "komt = ja"-adressen)
-- ✅ Beveiligd dashboard `/aanmeldingen`: todo-tracker (aangemeld / afgemeld / onbekend), totalen, mondelinge afmeldingen als gewone "nee" in de lijst (één klik, ongedaan te maken) en CSV-export
+- ✅ Beveiligd dashboard `/aanmeldingen`: todo-tracker (aangemeld / misschien / afgemeld / onbekend), totalen, door de organisatie gezette afmeldingen én misschien-markeringen (één klik, ongedaan te maken) en CSV-export
+- ✅ IP-whitelist: dashboard zonder wachtwoord vanaf vertrouwde IP's (`AANMELDINGEN_IP_WHITELIST`, IPv4 + IPv6)
 - ⏳ Bijdrage (tikkie) wordt later apart gecommuniceerd

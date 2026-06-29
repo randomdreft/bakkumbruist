@@ -10,6 +10,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const net = require('net');
 
 const PORT = parseInt(process.env.PORT, 10) || 80;
 const STATIC_DIR = process.env.STATIC_DIR || '/static';
@@ -24,6 +25,39 @@ const MONDELING_FILE = path.join(DATA_DIR, 'mondeling.json');
 // zodat het niet in de (publieke) git-repo belandt.
 const ADMIN_USER = process.env.AANMELDINGEN_USER || 'comite';
 const ADMIN_PASS = process.env.AANMELDINGEN_WACHTWOORD || '';
+
+// Optionele IP-whitelist: vanaf deze adressen/ranges is /aanmeldingen
+// toegankelijk zónder wachtwoord. Komma-gescheiden in de omgeving, elk
+// item een los IP of een CIDR-range, bijv.:
+//   AANMELDINGEN_IP_WHITELIST=203.0.113.5,2001:db8::/48
+const IP_WHITELIST = (function () {
+  const lijst = new net.BlockList();
+  let aantal = 0;
+  for (let item of (process.env.AANMELDINGEN_IP_WHITELIST || '').split(',')) {
+    item = item.trim();
+    if (!item) continue;
+    try {
+      if (item.indexOf('/') >= 0) {
+        const i = item.lastIndexOf('/');
+        const addr = item.slice(0, i);
+        const prefix = parseInt(item.slice(i + 1), 10);
+        const fam = net.isIP(addr);
+        if (fam === 4) lijst.addSubnet(addr, prefix, 'ipv4');
+        else if (fam === 6) lijst.addSubnet(addr, prefix, 'ipv6');
+        else throw new Error('geen geldig IP');
+      } else {
+        const fam = net.isIP(item);
+        if (fam === 4) lijst.addAddress(item, 'ipv4');
+        else if (fam === 6) lijst.addAddress(item, 'ipv6');
+        else throw new Error('geen geldig IP');
+      }
+      aantal++;
+    } catch (e) {
+      console.error('IP-whitelist: item overgeslagen (' + item + '): ' + e.message);
+    }
+  }
+  return { lijst: lijst, aantal: aantal };
+})();
 
 // --- Geldige huisnummers Eikenhorst (hardcoded, exact 53 adressen) ---
 // Oneven 1 t/m 77 (39 stuks) + even 2 t/m 28 (14 stuks).
@@ -143,6 +177,38 @@ function checkAuth(req) {
   return safeEqual(user, ADMIN_USER) && safeEqual(pass, ADMIN_PASS);
 }
 
+// Echt client-IP zoals NPM het doorgeeft. X-Real-IP wordt door NPM op
+// $remote_addr gezet (overschrijft de header, dus niet door de client te
+// spoofen); val terug op de laatste X-Forwarded-For-waarde en de socket.
+function clientIp(req) {
+  let ip = (req.headers['x-real-ip'] || '').trim();
+  if (!ip) {
+    const xff = (req.headers['x-forwarded-for'] || '').split(',');
+    ip = (xff[xff.length - 1] || '').trim();
+  }
+  if (!ip && req.socket) ip = req.socket.remoteAddress || '';
+  if (ip.indexOf('::ffff:') === 0) ip = ip.slice(7); // IPv4-mapped IPv6
+  const pct = ip.indexOf('%');
+  if (pct >= 0) ip = ip.slice(0, pct);               // zone-id eraf
+  return ip;
+}
+
+// Zit het client-IP in de (optionele) whitelist? Dan geen wachtwoord nodig.
+function ipWhitelisted(req) {
+  if (!IP_WHITELIST.aantal) return false;
+  const ip = clientIp(req);
+  const fam = net.isIP(ip);
+  if (fam === 4) return IP_WHITELIST.lijst.check(ip, 'ipv4');
+  if (fam === 6) return IP_WHITELIST.lijst.check(ip, 'ipv6');
+  return false;
+}
+
+// Toegang tot de organisatie-pagina: vanaf een whitelisted IP zonder
+// wachtwoord, anders via HTTP Basic Auth.
+function magToegang(req) {
+  return ipWhitelisted(req) || checkAuth(req);
+}
+
 function requireAuth(res) {
   res.writeHead(401, {
     'WWW-Authenticate': 'Basic realm="Bakkum Bruist aanmeldingen", charset="UTF-8"',
@@ -226,18 +292,20 @@ function handleTeller(res) {
 function handleAdminData(res) {
   const aangemeld = aanmeldingen.filter((a) => a.komt === true).length;
   const afgemeld = aanmeldingen.filter((a) => a.komt === false).length;
+  const misschien = aanmeldingen.filter((a) => a.komt === 'misschien').length;
 
   const totalen = {
-    // 3-staten-telling — telt altijd op tot totaal_adressen
+    // 4-staten-telling — telt altijd op tot totaal_adressen
     aangemeld: aangemeld,
     afgemeld: afgemeld,
-    gereageerd: aangemeld + afgemeld,
-    onbekend: TOTAAL_ADRESSEN - aangemeld - afgemeld,
-    // personen-statistiek (alleen van wie komt)
+    misschien: misschien,
+    gereageerd: aangemeld + afgemeld + misschien,
+    onbekend: TOTAAL_ADRESSEN - aangemeld - afgemeld - misschien,
+    // personen-statistiek (alleen van wie zeker komt)
     tm8: 0, n9_13: 0, n14_18: 0, volwassenen: 0, personen: 0,
   };
   for (const a of aanmeldingen) {
-    if (!a.komt) continue;
+    if (a.komt !== true) continue;
     totalen.tm8 += a.aantal_tm8 || 0;
     totalen.n9_13 += a.aantal_9_13 || 0;
     totalen.n14_18 += a.aantal_14_18 || 0;
@@ -269,31 +337,39 @@ function handleMondelingPost(req, res) {
     if (!Number.isInteger(huisnummer) || !GELDIGE_HUISNUMMERS.has(huisnummer)) {
       return json(res, 400, { error: 'ongeldig_huisnummer' });
     }
-    // Een adres dat al reageerde, niet overschrijven.
-    if (aanmeldingen.some((a) => a.huisnummer === huisnummer)) {
+    // Status die de organisatie zelf zet: 'misschien' of (default) afgemeld.
+    const komt = data.komt === 'misschien' ? 'misschien' : false;
+
+    // Een formulier-reactie nooit overschrijven; een eerdere mondelinge
+    // markering mag wél worden bijgewerkt (afgemeld <-> misschien).
+    const idx = aanmeldingen.findIndex((a) => a.huisnummer === huisnummer);
+    if (idx >= 0 && aanmeldingen[idx].bron !== 'mondeling') {
       return json(res, 409, { error: 'al_gereageerd' });
     }
 
-    aanmeldingen.push({
+    const record = {
       timestamp: new Date().toISOString(),
-      huisnummer: huisnummer, komt: false,
+      huisnummer: huisnummer, komt: komt,
       aantal_tm8: 0, aantal_9_13: 0, aantal_14_18: 0, aantal_volwassenen: 0,
       naam: '', contact: '', bron: 'mondeling',
-    });
+    };
+    if (idx >= 0) aanmeldingen[idx] = record;
+    else aanmeldingen.push(record);
 
     try { saveData(); }
     catch (e) {
       console.error('Opslaan mislukt:', e.message);
       return json(res, 500, { error: 'opslaan_mislukt' });
     }
-    json(res, 200, { status: 'ok', huisnummer: huisnummer });
+    json(res, 200, { status: 'ok', huisnummer: huisnummer, komt: komt });
   }).catch(() => {
     json(res, 400, { error: 'ongeldige_data' });
   });
 }
 
-// --- DELETE /api/mondeling (beveiligd) — maak mondelinge afmelding ongedaan ---
-// Verwijdert alleen records met bron 'mondeling' (formulier-reacties blijven staan).
+// --- DELETE /api/mondeling (beveiligd) — maak mondelinge markering ongedaan ---
+// Verwijdert alleen records met bron 'mondeling' (afgemeld of misschien);
+// formulier-reacties blijven altijd staan.
 function handleMondelingDelete(req, res) {
   readBody(req).then((data) => {
     const huisnummer = parseInt(data.huisnummer, 10);
@@ -318,13 +394,14 @@ function handleMondelingDelete(req, res) {
 // --- GET /api/aanmeldingen.csv (beveiligd) ---
 function handleAdminCsv(res) {
   const head = ['huisnummer', 'komt', 'kinderen_tm8', 'kinderen_9_13', 'jongeren_14_18', 'volwassenen', 'naam', 'contact', 'tijdstip'];
+  const komtTekst = (k) => (k === true ? 'ja' : k === 'misschien' ? 'misschien' : 'nee');
   const rows = aanmeldingen.slice().sort((x, y) => x.huisnummer - y.huisnummer).map((a) => [
     a.huisnummer,
-    a.komt ? 'ja' : 'nee',
-    a.komt ? a.aantal_tm8 : '',
-    a.komt ? a.aantal_9_13 : '',
-    a.komt ? a.aantal_14_18 : '',
-    a.komt ? a.aantal_volwassenen : '',
+    komtTekst(a.komt),
+    a.komt === true ? a.aantal_tm8 : '',
+    a.komt === true ? a.aantal_9_13 : '',
+    a.komt === true ? a.aantal_14_18 : '',
+    a.komt === true ? a.aantal_volwassenen : '',
     a.naam || '',
     a.contact || '',
     a.timestamp,
@@ -405,7 +482,7 @@ function route(req, res) {
   if (p === '/aanmeldingen' || p === '/aanmeldingen/' ||
       p === '/api/aanmeldingen' || p === '/api/aanmeldingen.csv' ||
       p === '/api/mondeling') {
-    if (!checkAuth(req)) return requireAuth(res);
+    if (!magToegang(req)) return requireAuth(res);
 
     if (p === '/api/aanmeldingen' && req.method === 'GET') return handleAdminData(res);
     if (p === '/api/aanmeldingen.csv' && req.method === 'GET') return handleAdminCsv(res);
@@ -420,8 +497,9 @@ function route(req, res) {
     return serveFile(adminFile, res, { 'X-Robots-Tag': 'noindex, nofollow' });
   }
 
-  // Statische bestanden (verberg de admin-pagina voor direct ophalen zonder auth)
-  if (p === '/aanmeldingen.html') return requireAuth(res);
+  // Statische bestanden (verberg de admin-pagina voor direct ophalen zonder
+  // auth; vanaf een whitelisted IP mag de pagina wel direct geserveerd worden)
+  if (p === '/aanmeldingen.html' && !magToegang(req)) return requireAuth(res);
 
   return serveStatic(p, res);
 }
@@ -431,5 +509,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('Bakkum Bruist server op poort ' + PORT +
     ' — ' + aanmeldingen.length + ' aanmelding(en) geladen, ' +
     TOTAAL_ADRESSEN + ' geldige adressen' +
+    (IP_WHITELIST.aantal ? ', ' + IP_WHITELIST.aantal + ' IP-whitelist-regel(s)' : '') +
     (ADMIN_PASS ? '' : ' — LET OP: geen AANMELDINGEN_WACHTWOORD ingesteld'));
 });
