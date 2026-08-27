@@ -208,7 +208,7 @@
 
     function feedbackKomt(data) {
         var titel = data.status === 'updated'
-            ? 'We hebben jullie aanmelding bijgewerkt.'
+            ? 'Je eerdere aanmelding is overschreven met de nieuwe gegevens.'
             : 'Top, jullie staan genoteerd!';
 
         var regels = '';
@@ -229,7 +229,7 @@
 
     function feedbackKomtNiet(updated) {
         var msg = updated
-            ? 'We hebben jullie aanmelding bijgewerkt — jullie zijn er dit jaar niet bij. Bedankt voor het doorgeven!'
+            ? 'Je eerdere aanmelding is overschreven met de nieuwe gegevens — jullie zijn er dit jaar niet bij. Bedankt voor het doorgeven!'
             : 'Jammer dat jullie er dit jaar niet bij zijn — bedankt voor het doorgeven. Volgend jaar weer!';
         toonFeedback('<p class="feedback-msg"><strong>' + msg + '</strong></p>');
     }

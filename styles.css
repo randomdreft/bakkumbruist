@@ -435,6 +435,120 @@ footer {
     font-style: italic;
 }
 
+/* ---------- Actueel programma ---------- */
+.programma-kop {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 22px;
+}
+.programma-kop h2 { margin-bottom: 0; }
+.programma-kop p {
+    margin: 0;
+    color: var(--diepblauw);
+    opacity: 0.75;
+}
+.programma-datum {
+    display: inline-block;
+    margin-bottom: 8px;
+    color: var(--koraal);
+    font-size: 0.84em;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.programma-lijst {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0;
+}
+.programma-lijst li {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 16px;
+    margin: 0;
+    padding: 0 0 20px;
+    position: relative;
+}
+.programma-lijst li:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 28px;
+    top: 30px;
+    bottom: 0;
+    width: 2px;
+    background: rgba(26, 145, 168, 0.22);
+}
+.programma-lijst time {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    align-self: start;
+    min-height: 30px;
+    padding: 5px 7px;
+    border-radius: 100px;
+    background: var(--zeeblauw);
+    color: var(--wit);
+    font-size: 0.82em;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    z-index: 1;
+}
+.programma-lijst div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 3px;
+}
+.programma-lijst strong { color: var(--diepblauw); }
+.programma-lijst span { font-size: 0.94em; }
+
+@media (min-width: 680px) {
+    .programma-kop {
+        flex-direction: row;
+        align-items: end;
+        justify-content: space-between;
+    }
+    .programma-lijst {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 32px;
+    }
+    .programma-lijst li:not(:last-child)::before { display: none; }
+}
+
+/* ---------- Praktische oproep bovenaan ---------- */
+.zoek-sectie { padding-top: 44px; padding-bottom: 44px; }
+.zoek-intro { max-width: 34em; }
+.zoek-lijst {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+.zoek-lijst li {
+    margin: 0;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: var(--wit);
+    border-top: 4px solid var(--zonnegeel);
+}
+.zoek-lijst strong {
+    display: block;
+    color: var(--diepblauw);
+    margin-bottom: 4px;
+}
+.zoek-actie {
+    margin: 0;
+    padding-top: 2px;
+}
+@media (min-width: 680px) {
+    .zoek-lijst { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /* ---------- Openbare teller / thermometer ---------- */
 .teller-blok {
     background: var(--duinzand);

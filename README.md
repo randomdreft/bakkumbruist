@@ -12,7 +12,7 @@ Plain HTML/CSS/JS aan de voorkant (geen framework, geen bundler, geen externe fo
 
 ```
 .
-├── index.html         single page (hero, idee, datum, activiteiten, aanmeldformulier + teller, doe mee)
+├── index.html         single page (hero, praktische oproep, programma, aanmeldformulier + teller, uitleg, doe mee)
 ├── eten.html          bestelformulier voor het eten (/eten)
 ├── styles.css         huisstijl + alternerende secties + formulier/teller/bestel-styling
 ├── script.js          jaartal, openbare teller, aanmeld-logica (steppers, dag/avond, live bijdrage)
@@ -213,11 +213,11 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 
 ## Secties (in volgorde)
 
-1. **Hero** *(wit)* — logo, "De datum is geprikt"-badge, twee hoofdknoppen (`Meld je aan` in zeeblauw, `Bestel je eten` in zonnegeel) met daaronder de besteldeadline uit `/api/instellingen`, en een rustiger tweede rij met WhatsApp
-2. **Wat is Bakkum Bruist?** *(duinzand)*
-3. **De datum staat vast** *(wit)* — datum-badge 12 sep + uitleg waarom
-4. **Waar we aan werken** *(duinzand)* — activiteitenlijst
-5. **Meld je aan** *(wit)* — uitleg dat opnieuw invullen met hetzelfde huisnummer je opgave bijwerkt, openbare teller, aanmeldformulier (dag + inklapbaar avondblok + live bijdrage) + link naar `/eten`
+1. **Hero** *(wit)* — logo, datum, starttijd, twee hoofdknoppen (`Meld je aan` in zeeblauw, `Bestel je eten` in zonnegeel) met daaronder de besteldeadline uit `/api/instellingen`, en een rustiger tweede rij met WhatsApp
+2. **Wat we nog zoeken** *(duinzand)* — praktische oproep voor partytenten, statafels, stroommateriaal en helpers
+3. **Het programma** *(wit)* — de actuele tijden van springplezier tot muziek uit
+4. **Meld je aan** *(wit)* — uitleg dat opnieuw invullen met hetzelfde huisnummer je opgave overschrijft, openbare teller, aanmeldformulier (dag + inklapbaar avondblok + live bijdrage) + link naar `/eten`
+5. **Wat is Bakkum Bruist?** *(wit)* — korte achtergrond, bewust pas na de praktische informatie
 6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
 
 `/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina.
@@ -226,6 +226,7 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 
 ```bash
 cd /var/www/bakkumbruist && npm run dev    # http://localhost:8000, data in ./.data
+npm test                                   # regressietest lege eetbestelling
 ```
 
 (De server leest `PORT`, `STATIC_DIR` en `DATA_DIR` uit de omgeving; in de container zijn dat 80, `/static` en `/data`.)
