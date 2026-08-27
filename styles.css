@@ -461,27 +461,29 @@ footer {
     list-style: none;
     padding: 0;
     margin: 0;
+    max-width: 700px;
     display: grid;
     gap: 0;
 }
 .programma-lijst li {
     display: grid;
-    grid-template-columns: 64px minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 20px;
     margin: 0;
-    padding: 0 0 20px;
+    padding: 0 0 26px;
     position: relative;
 }
 .programma-lijst li:not(:last-child)::before {
     content: "";
     position: absolute;
-    left: 28px;
-    top: 30px;
+    left: 43px;
+    top: 32px;
     bottom: 0;
     width: 2px;
     background: rgba(26, 145, 168, 0.22);
 }
-.programma-lijst time {
+.programma-lijst time,
+.programma-tijd {
     display: inline-flex;
     justify-content: center;
     align-items: center;
@@ -494,6 +496,7 @@ footer {
     font-size: 0.82em;
     font-weight: bold;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
     z-index: 1;
 }
 .programma-lijst div {
@@ -511,11 +514,18 @@ footer {
         align-items: end;
         justify-content: space-between;
     }
-    .programma-lijst {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px 32px;
+    .programma-lijst li { grid-template-columns: 100px minmax(0, 1fr); }
+    .programma-lijst li:not(:last-child)::before { left: 49px; }
+}
+
+@media (max-width: 420px) {
+    .programma-lijst li {
+        grid-template-columns: 78px minmax(0, 1fr);
+        gap: 14px;
     }
-    .programma-lijst li:not(:last-child)::before { display: none; }
+    .programma-lijst li:not(:last-child)::before { left: 38px; }
+    .programma-lijst time,
+    .programma-tijd { font-size: 0.75em; }
 }
 
 /* ---------- Praktische oproep bovenaan ---------- */

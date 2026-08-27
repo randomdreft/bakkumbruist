@@ -215,7 +215,7 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 
 1. **Hero** *(wit)* — logo, datum, starttijd, twee hoofdknoppen (`Meld je aan` in zeeblauw, `Bestel je eten` in zonnegeel) met daaronder de besteldeadline uit `/api/instellingen`, en een rustiger tweede rij met WhatsApp
 2. **Wat we nog zoeken** *(duinzand)* — praktische oproep voor partytenten, statafels, stroommateriaal en helpers
-3. **Het programma** *(wit)* — de actuele tijden van springplezier tot muziek uit
+3. **Het programma** *(wit)* — verticale tijdlijn met de actuele tijden van opbouw tot muziek uit
 4. **Meld je aan** *(wit)* — uitleg dat opnieuw invullen met hetzelfde huisnummer je opgave overschrijft, openbare teller, aanmeldformulier (dag + inklapbaar avondblok + live bijdrage) + link naar `/eten`
 5. **Wat is Bakkum Bruist?** *(wit)* — korte achtergrond, bewust pas na de praktische informatie
 6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
