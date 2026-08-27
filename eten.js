@@ -359,11 +359,17 @@
     function toonBevestiging(data) {
         bestelForm.hidden = true;
         wisMelding();
-        var kop = data.status === 'updated'
-            ? 'We hebben jullie bestelling bijgewerkt.'
-            : 'Bestelling genoteerd, dank je wel!';
+        var bijgewerkt = data.status === 'updated';
+        var kop = bijgewerkt ? 'Bestelling bijgewerkt!' : 'Bestelling gelukt!';
+        var uitleg = bijgewerkt
+            ? 'De vorige bestelling is vervangen door deze nieuwe bestelling.'
+            : 'We hebben jullie bestelling ontvangen en genoteerd.';
         bevestiging.innerHTML =
-            overzichtHtml(data.bestelling, kop) +
+            '<div class="bestel-succes-kop">' +
+                '<span class="bestel-succes-icoon" aria-hidden="true">✓</span>' +
+                '<div><h3>' + kop + '</h3><p>' + uitleg + '</p></div>' +
+            '</div>' +
+            overzichtHtml(data.bestelling, 'Overzicht van jullie bestelling') +
             '<p>Je kunt dit tot <strong>' + esc(data.deadline_tekst) + '</strong> nog aanpassen. ' +
             'Betalen doen we via een tikkie, die krijg je later.</p>' +
             '<p><a href="/">&larr; Terug naar bakkumbruist.nl</a></p>';

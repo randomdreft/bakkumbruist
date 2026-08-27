@@ -1113,12 +1113,51 @@ footer {
 }
 
 /* Bevestiging na verzenden */
+#bevestiging {
+    background: #eff8ef;
+    border: 2px solid #2d7a2d;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(45, 122, 45, 0.16);
+    padding: 22px 24px;
+    margin: 28px 0;
+}
+.bestel-succes-kop {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+.bestel-succes-icoon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 50%;
+    background: #2d7a2d;
+    color: var(--wit);
+    font-size: 1.5em;
+    font-weight: bold;
+    line-height: 1;
+}
+.bestel-succes-kop h3 {
+    color: #1f6425;
+    margin: 0 0 3px;
+    font-size: 1.35em;
+}
+.bestel-succes-kop p { margin: 0; }
 .bestel-bevestiging {
     background: var(--duinzand);
     border-left: 4px solid var(--zeeblauw);
     border-radius: 0 12px 12px 0;
     padding: 20px 24px;
     margin: 20px 0;
+}
+#bevestiging .bestel-bevestiging {
+    background: var(--wit);
+    border: 1px solid rgba(45, 122, 45, 0.25);
+    border-left: 4px solid #2d7a2d;
+    margin: 18px 0;
 }
 .bestel-bevestiging h3 { margin-top: 0; }
 .bestel-bevestiging ul {
@@ -1139,6 +1178,15 @@ footer {
     border-top: 2px solid rgba(15, 76, 92, 0.25);
     border-bottom: none;
     padding-top: 8px;
+}
+
+@media (max-width: 420px) {
+    #bevestiging { padding: 18px; }
+    .bestel-succes-icoon {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+    }
 }
 
 /* Tekstveld voor allergieën / extra's */
