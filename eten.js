@@ -23,6 +23,7 @@
 
     var snacks = [];        // uit /api/snacks — de enige bron van het assortiment
     var huidigHuis = null;
+    var dagPersonen = 0;    // eigen dagdeelnemers, als hint bij "voor hoeveel personen?"
 
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -32,8 +33,20 @@
     function euro(cent) {
         return '€ ' + (cent / 100).toFixed(2).replace('.', ',');
     }
-    function stuks(n) {
-        return n + (n === 1 ? ' stuk' : ' stuks');
+    // Aantal met het woord dat bij de eenheid hoort: "3 stuks" of
+    // "3 personen". De eenheid komt uit de database, niet uit deze code.
+    function woorden(snack) {
+        return (snack && snack.woorden) || { enkelvoud: 'stuk', meervoud: 'stuks', per: 'per stuk', vraag: 'Hoeveel?' };
+    }
+    function metEenheid(n, snack) {
+        var w = woorden(snack);
+        return n + ' ' + (n === 1 ? w.enkelvoud : w.meervoud);
+    }
+    // Regel zoals je hem zou uitspreken: "3 personen friet" of "2× Kroket".
+    function regelTekst(n, snack) {
+        return snack && snack.eenheid === 'persoon'
+            ? metEenheid(n, snack) + ' ' + snack.naam.toLowerCase()
+            : n + '× ' + snack.naam;
     }
     function isValidHuisnummer(n) {
         if (!Number.isInteger(n)) return false;
@@ -93,17 +106,25 @@
         }
         snackLijst.innerHTML = snacks.map(function (s) {
             var id = 'snack-' + s.id;
+            var w = woorden(s);
+            var perPersoon = s.eenheid === 'persoon';
+            // Bij een portie per persoon vragen we het ook zo, en zetten we
+            // het aantal dagdeelnemers erbij als geheugensteun.
+            var hint = perPersoon
+                ? w.vraag + (dagPersonen ? ' Jullie komen met ' + dagPersonen + ' overdag.' : '')
+                : '';
             return '<div class="snack-rij">' +
                 '<div class="snack-info">' +
                     '<label class="snack-naam" for="' + id + '">' + esc(s.naam) + '</label>' +
-                    '<span class="snack-prijs">' + euro(s.prijs_cent) + ' per stuk</span>' +
+                    '<span class="snack-prijs">' + euro(s.prijs_cent) + ' ' + esc(w.per) + '</span>' +
                     (s.omschrijving ? '<span class="snack-omschrijving">' + esc(s.omschrijving) + '</span>' : '') +
+                    (hint ? '<span class="snack-omschrijving">' + esc(hint) + '</span>' : '') +
                 '</div>' +
                 '<span class="snack-regeltotaal" id="regel-' + s.id + '"></span>' +
                 '<div class="stepper" data-stepper>' +
-                    '<button type="button" class="stepper-btn" data-step="-1" aria-label="Minder ' + esc(s.naam) + '">−</button>' +
+                    '<button type="button" class="stepper-btn" data-step="-1" aria-label="Minder ' + esc(perPersoon ? 'personen ' + s.naam : s.naam) + '">−</button>' +
                     '<input type="number" id="' + id + '" name="' + esc(s.slug) + '" min="0" max="' + MAX_AANTAL + '" step="1" value="0" inputmode="numeric" data-snack-id="' + s.id + '">' +
-                    '<button type="button" class="stepper-btn" data-step="1" aria-label="Meer ' + esc(s.naam) + '">+</button>' +
+                    '<button type="button" class="stepper-btn" data-step="1" aria-label="Meer ' + esc(perPersoon ? 'personen ' + s.naam : s.naam) + '">+</button>' +
                 '</div>' +
             '</div>';
         }).join('');
@@ -153,14 +174,16 @@
         document.getElementById('totaal-regels').innerHTML = regels.map(function (r) {
             totaalCent += r.aantal * r.snack.prijs_cent;
             totaalStuks += r.aantal;
-            return '<li><span>' + r.aantal + '× ' + esc(r.snack.naam) + '</span>' +
+            return '<li><span>' + esc(regelTekst(r.aantal, r.snack)) + '</span>' +
                 '<span>' + euro(r.aantal * r.snack.prijs_cent) + '</span></li>';
         }).join('');
 
         var leeg = regels.length === 0;
         document.getElementById('totaal-leeg').hidden = !leeg;
         document.getElementById('totaal-som').hidden = leeg;
-        document.getElementById('totaal-stuks').textContent = stuks(totaalStuks);
+        // Bewust geen aantal in de somregel: stuks en personen bij elkaar
+        // optellen levert een getal op dat niets betekent.
+        document.getElementById('totaal-stuks').textContent = 'Totaal';
         document.getElementById('totaal-bedrag').textContent = euro(totaalCent);
     }
 
@@ -230,6 +253,7 @@
         }
 
         // Mag bestellen: formulier opbouwen en eventueel voorvullen.
+        dagPersonen = data.dag_personen || 0;
         bouwSnackLijst();
         document.getElementById('bestel-kop').textContent = data.bestelling
             ? 'Jullie bestelling voor Eikenhorst ' + huisnummer
@@ -253,13 +277,13 @@
     // Overzichtje van een bestelling (bevestiging én readonly na de deadline)
     function overzichtHtml(bestelling, kop) {
         var regels = bestelling.regels.map(function (r) {
-            return '<li><span>' + r.aantal + '× ' + esc(r.naam) + '</span>' +
+            return '<li><span>' + esc(regelTekst(r.aantal, r)) + '</span>' +
                 '<span>' + euro(r.regel_cent) + '</span></li>';
         }).join('');
         return '<div class="bestel-bevestiging">' +
             '<h3>' + esc(kop) + '</h3>' +
             '<ul>' + regels +
-                '<li class="som"><span>' + stuks(bestelling.aantal_stuks) + '</span>' +
+                '<li class="som"><span>Totaal</span>' +
                 '<span>' + euro(bestelling.totaal_cent) + '</span></li>' +
             '</ul>' +
             (bestelling.opmerking ? '<p class="muted small">Jullie opmerking: ' + esc(bestelling.opmerking) + '</p>' : '') +

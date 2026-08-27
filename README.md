@@ -37,15 +37,16 @@ SQLite op `/data/bakkumbruist.db` (Docker-volume `static-sites_bakkumbruist-data
 |-------|--------|
 | `aanmelding` | één rij per huisnummer: `huisnummer` (UNIQUE), `komt`, `bron`, `naam`, `contact`, `opmerking`, `aangemaakt_op`, `bijgewerkt_op` |
 | `deelnemer` | de aantallen: `aanmelding_id` (FK, CASCADE), `leeftijdsgroep` (`tm8`/`9_13`/`14_18`/`volwassen`), `deelname` (`dag`/`avond`), `aantal`. UNIQUE op (aanmelding, groep, deelname) |
-| `snack` | het assortiment: `slug` (UNIQUE), `naam`, `omschrijving`, `prijs_cent`, `actief`, `volgorde` |
+| `snack` | het assortiment: `slug` (UNIQUE), `naam`, `omschrijving`, `prijs_cent`, `eenheid` (`stuk`/`persoon`), `actief`, `volgorde` |
 | `bestelling` | één rij per huis: `aanmelding_id` (FK, UNIQUE), `opmerking`, tijdstempels |
 | `bestelregel` | `bestelling_id` (FK, CASCADE), `snack_id` (FK), `aantal`, `prijs_cent_bij_bestelling`. UNIQUE op (bestelling, snack) |
 | `meta` | sleutel/waarde, o.a. de markering dat de JSON-migratie gedaan is |
 
-Twee keuzes die uitleg verdienen:
+Drie keuzes die uitleg verdienen:
 
 - **`deelnemer` is een aparte tabel, geen acht kolommen in `aanmelding`.** Een leeftijdsgroep of een tariefsoort erbij is dan een rij, geen schemawijziging.
 - **`prijs_cent_bij_bestelling` is opzettelijk gedenormaliseerd.** Wijzigt De Toren de prijs nadat mensen besteld hebben, dan blijven de al verstuurde bevestigingen kloppen. Nieuwe bestellingen pakken vanzelf de nieuwe prijs.
+- **`eenheid` staat in de data, niet in de teksten.** Snacks tel je per stuk, friet per persoon (één portie per persoon). Bij `persoon` vraagt het formulier *"Voor hoeveel personen?"* in plaats van *"Hoeveel?"*, en leest alles wat eruit komt als *"4 personen friet"* in plaats van *"4× Friet"* — ook de lijst die naar De Toren gaat. Een volgende snack die per persoon gaat, is dus één vlaggetje en geen tekstwijziging.
 
 **`komt` is drie-standig** (`ja` / `nee` / `misschien`), niet 0/1: de organisatie kan een adres ook als *misschien* markeren. Overal expliciet vergelijken.
 
@@ -100,16 +101,22 @@ De statische server weigert bovendien bestandsnamen die op een kopietje wijzen (
 Het formulier, de overzichten en de CSV worden **volledig uit de `snack`-tabel opgebouwd**. Een snack toevoegen of uitzetten is dus één commando en verder niets — geen HTML, JS of query aanpassen. Wijzigingen zijn meteen live, de container hoeft niet herstart.
 
 ```bash
-sudo docker exec bakkumbruist node snack.js lijst                      # wat staat er nu
-sudo docker exec bakkumbruist node snack.js toevoegen patat "Patat" 275   # nieuw (prijs in CENTEN)
-sudo docker exec bakkumbruist node snack.js prijs frikandel 310        # prijs wijzigen
-sudo docker exec bakkumbruist node snack.js uit kaassouffle            # tijdelijk van de kaart
-sudo docker exec bakkumbruist node snack.js aan kaassouffle            # weer erop
-sudo docker exec bakkumbruist node snack.js naam patat "Patat groot"   # hernoemen
-sudo docker exec bakkumbruist node snack.js volgorde patat 5           # positie in de lijst
+sudo docker exec bakkumbruist node snack.js lijst                          # wat staat er nu
+sudo docker exec bakkumbruist node snack.js toevoegen kipcorn "Kipcorn" 250   # per stuk (prijs in CENTEN)
+sudo docker exec bakkumbruist node snack.js toevoegen soep "Soep" 200 --per persoon
+sudo docker exec bakkumbruist node snack.js prijs frikandel 310            # prijs wijzigen
+sudo docker exec bakkumbruist node snack.js uit kaassouffle                # tijdelijk van de kaart
+sudo docker exec bakkumbruist node snack.js aan kaassouffle                # weer erop
+sudo docker exec bakkumbruist node snack.js naam friet "Patat"             # hernoemen
+sudo docker exec bakkumbruist node snack.js eenheid friet persoon          # per stuk <-> per persoon
+sudo docker exec bakkumbruist node snack.js volgorde kipcorn 40            # positie in de lijst
 ```
 
+**Startassortiment:** friet € 2,90 **per persoon**, frikandel € 2,90, kroket € 3,00, kaassoufflé € 3,00 (die drie per stuk).
+
 **Prijzen altijd in centen** (`275` = € 2,75). Het script waarschuwt als een bedrag boven € 50 uitkomt — meestal betekent dat euro's in plaats van centen. Een snack **uitzetten verwijdert niets**: bestaande bestellingen en hun bedragen blijven staan, de snack verdwijnt alleen uit het formulier.
+
+Met `--per persoon` (of `snack.js eenheid <slug> persoon`) telt een regel porties in plaats van stuks. Dat verandert alleen de vraagstelling en de weergave — het rekenwerk blijft aantal × prijs. Een bestaande bestelling houdt zijn aantal; alleen het woord eromheen verandert.
 
 ## Data bekijken, back-uppen, terugzetten
 
@@ -166,7 +173,7 @@ sudo docker exec bakkumbruist node /app/migreer-json.js
 
 - **Todo-tracker**: vier statussen die altijd optellen tot 53 — aangemeld / misschien / afgemeld / onbekend, met gestapelde voortgangsbalk.
 - **Totalen**: personen overdag en 's avonds, uitgesplitst per leeftijdsgroep, plus de totale bijdrage en het totale eetbedrag.
-- **Bestellijst voor De Toren**: één compact blok met per snack het totaal aantal stuks en het bedrag, met een knop om het als platte tekst te kopiëren. Dit is wat er letterlijk doorgebeld wordt en staat daarom bewust los van de rest.
+- **Bestellijst voor De Toren**: één compact blok met per snack het totaal en het bedrag, geschreven zoals je het doorbelt (*"12 personen friet"*, *"23× Kroket"*), met een knop om het als platte tekst te kopiëren. Dit is wat er letterlijk doorgebeld wordt en staat daarom bewust los van de rest. **Er staat geen totaalaantal onder:** porties per persoon en losse snacks bij elkaar optellen levert een getal zonder betekenis, dus alleen het bedrag telt op.
 - **Bestellingen per huis**: de basis voor de tikkies. Kolommen komen uit de snacktabel.
 - **Alle reacties**: per huis de dag- en avondaantallen per leeftijdsgroep, en **bijdrage, eten en totaal alle drie zichtbaar**.
 - **Wie ontbreekt**: huizen zonder aanmelding (met één klik te markeren als *afgemeld* of *misschien*) en aangemelde dag-huizen zonder bestelling.

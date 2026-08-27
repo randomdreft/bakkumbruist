@@ -5,12 +5,17 @@
 // uitzetten is één commando — nergens anders iets aanpassen.
 //
 //   sudo docker exec bakkumbruist node snack.js lijst
-//   sudo docker exec bakkumbruist node snack.js toevoegen patat "Patat" 275
+//   sudo docker exec bakkumbruist node snack.js toevoegen kipcorn "Kipcorn" 250
+//   sudo docker exec bakkumbruist node snack.js toevoegen soep "Soep" 200 --per persoon
 //   sudo docker exec bakkumbruist node snack.js prijs frikandel 310
 //   sudo docker exec bakkumbruist node snack.js uit kaassouffle
 //   sudo docker exec bakkumbruist node snack.js aan kaassouffle
-//   sudo docker exec bakkumbruist node snack.js naam patat "Patat groot"
-//   sudo docker exec bakkumbruist node snack.js volgorde patat 5
+//   sudo docker exec bakkumbruist node snack.js naam friet "Patat"
+//   sudo docker exec bakkumbruist node snack.js eenheid friet persoon
+//   sudo docker exec bakkumbruist node snack.js volgorde kipcorn 40
+//
+// Eenheid: 'stuk' (default) telt losse snacks, 'persoon' telt porties — het
+// formulier vraagt dan "voor hoeveel personen?" in plaats van "hoeveel?".
 //
 // Prijzen altijd in CENTEN (275 = € 2,75). De wijziging is meteen live;
 // de container hoeft niet herstart te worden.
@@ -24,14 +29,15 @@ function euro(cent) {
 function toonLijst(db) {
   const rijen = db.prepare('SELECT * FROM snack ORDER BY volgorde, naam').all();
   if (!rijen.length) { console.log('Geen snacks in de database.'); return; }
-  console.log('volgorde  slug            naam                 prijs      status');
-  console.log('-------------------------------------------------------------------');
+  console.log('volgorde  slug            naam                 prijs        per        status');
+  console.log('---------------------------------------------------------------------------');
   for (const r of rijen) {
     console.log(
       String(r.volgorde).padStart(8) + '  ' +
       r.slug.padEnd(15) + ' ' +
       r.naam.padEnd(20) + ' ' +
-      euro(r.prijs_cent).padEnd(10) + ' ' +
+      euro(r.prijs_cent).padEnd(12) + ' ' +
+      (r.eenheid || 'stuk').padEnd(10) + ' ' +
       (r.actief ? 'actief' : 'uit')
     );
   }
@@ -63,8 +69,25 @@ function centenUit(v) {
   return n;
 }
 
+function eenheidUit(v) {
+  if (v === 'persoon' || v === 'personen') return 'persoon';
+  if (v === 'stuk' || v === 'stuks') return 'stuk';
+  console.error("Eenheid moet 'stuk' of 'persoon' zijn, niet: " + v);
+  process.exit(1);
+}
+
 function main() {
-  const [, , commando, ...rest] = process.argv;
+  const argv = process.argv.slice(2);
+
+  // --per stuk|persoon mag overal staan; de rest blijft positioneel.
+  let perVlag = null;
+  const i = argv.indexOf('--per');
+  if (i >= 0) {
+    perVlag = eenheidUit(argv[i + 1]);
+    argv.splice(i, 2);
+  }
+
+  const [commando, ...rest] = argv;
   const db = db_.open();
   db_.initSchema(db);
 
@@ -92,9 +115,11 @@ function main() {
       const vol = volgorde === undefined
         ? (db.prepare('SELECT COALESCE(MAX(volgorde),0) + 10 AS v FROM snack').get().v)
         : parseInt(volgorde, 10) || 0;
-      db.prepare('INSERT INTO snack (slug, naam, omschrijving, prijs_cent, actief, volgorde) VALUES (?, ?, \'\', ?, 1, ?)')
-        .run(slug, naam, cent, vol);
-      console.log('Toegevoegd: ' + naam + ' (' + slug + ') ' + euro(cent) + ', volgorde ' + vol + ' — meteen live.');
+      const eenheid = perVlag || 'stuk';
+      db.prepare('INSERT INTO snack (slug, naam, omschrijving, prijs_cent, eenheid, actief, volgorde) ' +
+        "VALUES (?, ?, '', ?, ?, 1, ?)").run(slug, naam, cent, eenheid, vol);
+      console.log('Toegevoegd: ' + naam + ' (' + slug + ') ' + euro(cent) + ' per ' + eenheid +
+        ', volgorde ' + vol + ' — meteen live.');
       break;
     }
 
@@ -137,6 +162,21 @@ function main() {
       break;
     }
 
+    case 'eenheid': {
+      const [slug, waarde] = rest;
+      if (!slug || (waarde === undefined && !perVlag)) {
+        console.error('Gebruik: node snack.js eenheid <slug> stuk|persoon');
+        process.exit(1);
+      }
+      const r = zoek(db, slug);
+      const nieuw = perVlag || eenheidUit(waarde);
+      db.prepare('UPDATE snack SET eenheid = ? WHERE slug = ?').run(nieuw, slug);
+      console.log(r.naam + ' wordt nu geteld per ' + nieuw +
+        (nieuw === 'persoon' ? " — het formulier vraagt 'voor hoeveel personen?'" : " — het formulier vraagt 'hoeveel?'") +
+        '. Al geplaatste bestellingen houden hun aantal.');
+      break;
+    }
+
     case 'volgorde': {
       const [slug, n] = rest;
       if (!slug || n === undefined) { console.error('Gebruik: node snack.js volgorde <slug> <getal>'); process.exit(1); }
@@ -148,7 +188,7 @@ function main() {
 
     default:
       console.error('Onbekend commando: ' + commando);
-      console.error('Gebruik: lijst | toevoegen | prijs | aan | uit | naam | volgorde');
+      console.error('Gebruik: lijst | toevoegen | prijs | aan | uit | naam | eenheid | volgorde');
       process.exit(1);
   }
 }

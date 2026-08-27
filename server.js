@@ -23,7 +23,7 @@ const STATIC_DIR = process.env.STATIC_DIR || '/static';
 
 const {
   GELDIGE_HUISNUMMERS, TOTAAL_ADRESSEN,
-  LEEFTIJDSGROEPEN, DEELNAMES, TARIEF_CENT, MAX_AANTAL,
+  LEEFTIJDSGROEPEN, DEELNAMES, TARIEF_CENT, MAX_AANTAL, EENHEDEN,
 } = db_;
 
 const GROEP_CODES = LEEFTIJDSGROEPEN.map((g) => g.code);
@@ -135,11 +135,11 @@ const Q = {
     'INSERT INTO bestelregel (bestelling_id, snack_id, aantal, prijs_cent_bij_bestelling) VALUES (?, ?, ?, ?)'
   ),
   regelsVan: db.prepare(
-    'SELECT r.snack_id, r.aantal, r.prijs_cent_bij_bestelling, s.slug, s.naam ' +
+    'SELECT r.snack_id, r.aantal, r.prijs_cent_bij_bestelling, s.slug, s.naam, s.eenheid ' +
     'FROM bestelregel r JOIN snack s ON s.id = r.snack_id WHERE r.bestelling_id = ? ORDER BY s.volgorde, s.naam'
   ),
   alleRegels: db.prepare(
-    'SELECT r.bestelling_id, r.snack_id, r.aantal, r.prijs_cent_bij_bestelling, s.slug, s.naam ' +
+    'SELECT r.bestelling_id, r.snack_id, r.aantal, r.prijs_cent_bij_bestelling, s.slug, s.naam, s.eenheid ' +
     'FROM bestelregel r JOIN snack s ON s.id = r.snack_id ORDER BY s.volgorde, s.naam'
   ),
 };
@@ -328,8 +328,9 @@ function handleSnacks(res) {
   const snacks = Q.actieveSnacks.all().map((s) => ({
     id: s.id, slug: s.slug, naam: s.naam,
     omschrijving: s.omschrijving, prijs_cent: s.prijs_cent,
+    eenheid: s.eenheid, woorden: EENHEDEN[s.eenheid] || EENHEDEN.stuk,
   }));
-  json(res, 200, { snacks: snacks, max_aantal: MAX_AANTAL });
+  json(res, 200, { snacks: snacks, max_aantal: MAX_AANTAL, eenheden: EENHEDEN });
 }
 
 // ---------------------------------------------------------------------------
@@ -468,6 +469,7 @@ function bestelStatusVan(huisnummer) {
   if (bestelling) {
     const regels = Q.regelsVan.all(bestelling.id).map((r) => ({
       snack_id: r.snack_id, slug: r.slug, naam: r.naam,
+      eenheid: r.eenheid, woorden: EENHEDEN[r.eenheid] || EENHEDEN.stuk,
       aantal: r.aantal, prijs_cent: r.prijs_cent_bij_bestelling,
       regel_cent: r.aantal * r.prijs_cent_bij_bestelling,
     }));
@@ -490,7 +492,11 @@ function bestelStatusVan(huisnummer) {
     });
   }
 
-  return Object.assign(basis, { mag: true, reden: 'ok', bestelling: huidig });
+  // Het eigen dagaantal meesturen: handig als hint bij "voor hoeveel personen
+  // friet?". Alleen van dit huis, dus geen gegevens van iemand anders.
+  return Object.assign(basis, {
+    mag: true, reden: 'ok', bestelling: huidig, dag_personen: somVan(deel.dag),
+  });
 }
 
 // --- GET /api/bestelstatus?huisnummer=.. ---
@@ -625,6 +631,7 @@ function bouwOverzicht() {
     if (!b) continue;
     const regel = {
       snack_id: r.snack_id, slug: r.slug, naam: r.naam,
+      eenheid: r.eenheid, woorden: EENHEDEN[r.eenheid] || EENHEDEN.stuk,
       aantal: r.aantal, prijs_cent: r.prijs_cent_bij_bestelling,
       regel_cent: r.aantal * r.prijs_cent_bij_bestelling,
     };
@@ -717,7 +724,10 @@ function bouwOverzicht() {
     .filter((s) => bestellijstTelling.has(s.id))
     .map((s) => {
       const t = bestellijstTelling.get(s.id);
-      return { slug: s.slug, naam: s.naam, aantal: t.aantal, bedrag_cent: t.bedrag_cent, actief: !!s.actief };
+      return {
+        slug: s.slug, naam: s.naam, aantal: t.aantal, bedrag_cent: t.bedrag_cent,
+        eenheid: s.eenheid, woorden: EENHEDEN[s.eenheid] || EENHEDEN.stuk, actief: !!s.actief,
+      };
     });
 
   const gemeld = new Set(rijen.map((r) => r.huisnummer));
@@ -746,7 +756,12 @@ function bouwOverzicht() {
     bestel_deadline_verstreken: deadlineVerstreken(),
     totalen: totalen,
     aanmeldingen: rijen,
-    snacks: snacks.map((s) => ({ id: s.id, slug: s.slug, naam: s.naam, prijs_cent: s.prijs_cent, actief: !!s.actief, volgorde: s.volgorde })),
+    snacks: snacks.map((s) => ({
+      id: s.id, slug: s.slug, naam: s.naam, prijs_cent: s.prijs_cent,
+      eenheid: s.eenheid, woorden: EENHEDEN[s.eenheid] || EENHEDEN.stuk,
+      actief: !!s.actief, volgorde: s.volgorde,
+    })),
+    eenheden: EENHEDEN,
     bestellijst: bestellijst,
     bestellijst_stuks: bestellijstStuks,
     bestellijst_totaal_cent: bestellijstTotaalCent,
@@ -805,7 +820,9 @@ function handleBestellingenCsv(res) {
   const besteld = new Set();
   for (const b of o.bestellingen) for (const r of b.regels) besteld.add(r.snack_id);
   const snacks = o.snacks.filter((s) => s.actief || besteld.has(s.id));
-  const kop = ['huisnummer', ...snacks.map((s) => s.slug), 'stuks', 'bedrag_eur', 'geldig', 'opmerking', 'bijgewerkt_op'];
+  const kop = ['huisnummer',
+    ...snacks.map((s) => s.slug + (s.eenheid === 'persoon' ? '_personen' : '_stuks')),
+    'aantal_totaal', 'bedrag_eur', 'geldig', 'opmerking', 'bijgewerkt_op'];
   const rijen = o.bestellingen.map((b) => {
     const perSnack = new Map(b.regels.map((r) => [r.snack_id, r.aantal]));
     return [

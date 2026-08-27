@@ -79,6 +79,7 @@
         .pill.misschien { background: rgba(255,201,60,0.25); color: #8a6a12; }
         .pill.nee { background: rgba(255,107,107,0.18); color: var(--koraal); }
         .nul { opacity: 0.3; }
+        .kop-eenheid { font-weight: normal; font-size: 0.78em; opacity: 0.7; }
 
         /* --- Bestellijst voor De Toren: bewust kaal en kopieerbaar --- */
         .toren-blok {
@@ -284,6 +285,14 @@
             function getal(n) {
                 return n ? String(n) : '<span class="nul">0</span>';
             }
+            // Regel zoals je hem doorbelt: "12 personen friet" of "23× Kroket".
+            // De eenheid komt uit de database, niet uit deze code.
+            function regelTekst(n, snack) {
+                var w = (snack && snack.woorden) || { enkelvoud: 'stuk', meervoud: 'stuks' };
+                return snack && snack.eenheid === 'persoon'
+                    ? n + ' ' + (n === 1 ? w.enkelvoud : w.meervoud) + ' ' + snack.naam.toLowerCase()
+                    : n + '× ' + snack.naam;
+            }
 
             function statKaart(g, label, sub, klasse) {
                 return '<div class="stat-kaart ' + klasse + '">' +
@@ -342,13 +351,14 @@
                 // --- bestellijst voor De Toren ---
                 var lijst = data.bestellijst;
                 document.getElementById('toren-lijst').innerHTML = lijst.map(function (b) {
-                    return '<li><span class="aantal">' + b.aantal + '× ' + esc(b.naam) + '</span>' +
+                    return '<li><span class="aantal">' + esc(regelTekst(b.aantal, b)) + '</span>' +
                         '<span>' + euro(b.bedrag_cent) + '</span></li>';
                 }).join('');
                 document.getElementById('toren-leeg').hidden = lijst.length > 0;
                 document.getElementById('toren-som').hidden = lijst.length === 0;
-                document.getElementById('toren-stuks').textContent =
-                    data.bestellijst_stuks + (data.bestellijst_stuks === 1 ? ' stuk' : ' stuks');
+                // Geen gemengd totaalaantal: porties per persoon en losse
+                // snacks bij elkaar optellen levert een getal zonder betekenis.
+                document.getElementById('toren-stuks').textContent = 'Totaal';
                 document.getElementById('toren-bedrag').textContent = euro(data.bestellijst_totaal_cent);
 
                 document.getElementById('toren-letop').innerHTML = data.let_op_bestellingen.length
@@ -371,8 +381,12 @@
                 document.getElementById('bestellingen-aantal').textContent = '(' + data.bestellingen.length + ')';
                 document.getElementById('bestel-kop').innerHTML =
                     '<th class="num">Huis</th>' +
-                    snacks.map(function (s) { return '<th class="num">' + esc(s.naam) + '</th>'; }).join('') +
-                    '<th class="num kolomgroep">Stuks</th><th class="geld">Bedrag</th><th>Opmerking</th><th>Bijgewerkt</th>';
+                    snacks.map(function (s) {
+                        return '<th class="num">' + esc(s.naam) +
+                            (s.eenheid === 'persoon' ? '<br><span class="kop-eenheid">personen</span>' : '') +
+                            '</th>';
+                    }).join('') +
+                    '<th class="num kolomgroep">Aantal</th><th class="geld">Bedrag</th><th>Opmerking</th><th>Bijgewerkt</th>';
                 document.getElementById('bestel-rijen').innerHTML = data.bestellingen.map(function (b) {
                     var perSnack = {};
                     b.regels.forEach(function (r) { perSnack[r.snack_id] = r.aantal; });
@@ -461,10 +475,11 @@
                 if (!laatste) return '';
                 var r = ['Bakkum Bruist — Eikenhorst, bestelling:'];
                 laatste.bestellijst.forEach(function (b) {
-                    r.push(b.aantal + 'x ' + b.naam);
+                    r.push(b.eenheid === 'persoon'
+                        ? b.aantal + 'x ' + b.naam.toLowerCase() + ' (porties, 1 per persoon)'
+                        : b.aantal + 'x ' + b.naam);
                 });
-                r.push('Totaal: ' + laatste.bestellijst_stuks + ' stuks, ' +
-                    '€ ' + (laatste.bestellijst_totaal_cent / 100).toFixed(2).replace('.', ','));
+                r.push('Totaal: € ' + (laatste.bestellijst_totaal_cent / 100).toFixed(2).replace('.', ','));
                 return r.join('\n');
             }
 

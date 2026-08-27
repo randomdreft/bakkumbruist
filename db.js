@@ -49,10 +49,19 @@ const MAX_AANTAL = 20;
 // Alleen gebruikt om een lege tabel te vullen; bestaande rijen worden nooit
 // overschreven, zodat prijswijzigingen van De Toren blijven staan.
 const SNACK_SEED = [
-  { slug: 'frikandel', naam: 'Frikandel', omschrijving: '', prijs_cent: 290, volgorde: 10 },
-  { slug: 'kroket', naam: 'Kroket', omschrijving: '', prijs_cent: 300, volgorde: 20 },
-  { slug: 'kaassouffle', naam: 'Kaassoufflé', omschrijving: '', prijs_cent: 300, volgorde: 30 },
+  { slug: 'friet', naam: 'Friet', omschrijving: '', prijs_cent: 290, eenheid: 'persoon', volgorde: 5 },
+  { slug: 'frikandel', naam: 'Frikandel', omschrijving: '', prijs_cent: 290, eenheid: 'stuk', volgorde: 10 },
+  { slug: 'kroket', naam: 'Kroket', omschrijving: '', prijs_cent: 300, eenheid: 'stuk', volgorde: 20 },
+  { slug: 'kaassouffle', naam: 'Kaassoufflé', omschrijving: '', prijs_cent: 300, eenheid: 'stuk', volgorde: 30 },
 ];
+
+// Eenheden waarin besteld wordt. Snacks tel je per stuk, friet per persoon
+// (één portie per persoon) — daar hoort ook andere vraagstelling bij, dus
+// het staat in de data en niet in de teksten.
+const EENHEDEN = {
+  stuk: { enkelvoud: 'stuk', meervoud: 'stuks', per: 'per stuk', vraag: 'Hoeveel?' },
+  persoon: { enkelvoud: 'persoon', meervoud: 'personen', per: 'per persoon', vraag: 'Voor hoeveel personen?' },
+};
 
 // --- Schema ---
 const SCHEMA = `
@@ -96,6 +105,8 @@ CREATE TABLE IF NOT EXISTS snack (
   naam         TEXT    NOT NULL,
   omschrijving TEXT    NOT NULL DEFAULT '',
   prijs_cent   INTEGER NOT NULL CHECK (prijs_cent >= 0),
+  -- Per stuk (snacks) of per persoon (friet: één portie per persoon).
+  eenheid      TEXT    NOT NULL DEFAULT 'stuk' CHECK (eenheid IN ('stuk','persoon')),
   actief       INTEGER NOT NULL DEFAULT 1 CHECK (actief IN (0,1)),
   volgorde     INTEGER NOT NULL DEFAULT 0
 );
@@ -134,8 +145,14 @@ function open(bestand) {
 
 function initSchema(db) {
   db.exec(SCHEMA);
-  db.prepare("INSERT INTO meta (sleutel, waarde) VALUES ('schema_versie','1') " +
-    'ON CONFLICT(sleutel) DO NOTHING').run();
+  // Kolommen die later zijn bijgekomen. CREATE TABLE IF NOT EXISTS raakt een
+  // bestaande tabel niet aan, dus die moeten er los bij. Idempotent.
+  const snackKolommen = db.prepare('PRAGMA table_info(snack)').all().map((k) => k.name);
+  if (!snackKolommen.includes('eenheid')) {
+    db.exec("ALTER TABLE snack ADD COLUMN eenheid TEXT NOT NULL DEFAULT 'stuk'");
+  }
+  db.prepare("INSERT INTO meta (sleutel, waarde) VALUES ('schema_versie','2') " +
+    'ON CONFLICT(sleutel) DO UPDATE SET waarde = excluded.waarde').run();
 }
 
 // Vult ontbrekende snacks aan. Nog eens draaien verandert niets aan wat er
@@ -143,12 +160,12 @@ function initSchema(db) {
 function seedSnacks(db) {
   const bestaat = db.prepare('SELECT 1 FROM snack WHERE slug = ?');
   const invoegen = db.prepare(
-    'INSERT INTO snack (slug, naam, omschrijving, prijs_cent, actief, volgorde) VALUES (?, ?, ?, ?, 1, ?)'
+    'INSERT INTO snack (slug, naam, omschrijving, prijs_cent, eenheid, actief, volgorde) VALUES (?, ?, ?, ?, ?, 1, ?)'
   );
   let toegevoegd = 0;
   for (const s of SNACK_SEED) {
     if (bestaat.get(s.slug)) continue;
-    invoegen.run(s.slug, s.naam, s.omschrijving, s.prijs_cent, s.volgorde);
+    invoegen.run(s.slug, s.naam, s.omschrijving, s.prijs_cent, s.eenheid || 'stuk', s.volgorde);
     toegevoegd++;
   }
   return toegevoegd;
@@ -179,6 +196,6 @@ function transactie(db, fn) {
 module.exports = {
   DATA_DIR, DB_FILE, JSON_FILE,
   GELDIGE_HUISNUMMERS, TOTAAL_ADRESSEN,
-  LEEFTIJDSGROEPEN, DEELNAMES, TARIEF_CENT, MAX_AANTAL, SNACK_SEED,
+  LEEFTIJDSGROEPEN, DEELNAMES, TARIEF_CENT, MAX_AANTAL, SNACK_SEED, EENHEDEN,
   open, initSchema, seedSnacks, metaGet, metaSet, transactie,
 };
