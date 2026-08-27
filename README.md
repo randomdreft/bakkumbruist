@@ -213,11 +213,11 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 
 ## Secties (in volgorde)
 
-1. **Hero** *(wit)* — logo, "De datum is geprikt"-badge, CTA `Meld je aan` + WhatsApp
+1. **Hero** *(wit)* — logo, "De datum is geprikt"-badge, twee hoofdknoppen (`Meld je aan` in zeeblauw, `Bestel je eten` in zonnegeel) met daaronder de besteldeadline uit `/api/instellingen`, en een rustiger tweede rij met WhatsApp
 2. **Wat is Bakkum Bruist?** *(duinzand)*
 3. **De datum staat vast** *(wit)* — datum-badge 12 sep + uitleg waarom
 4. **Waar we aan werken** *(duinzand)* — activiteitenlijst
-5. **Meld je aan** *(wit)* — openbare teller + aanmeldformulier (dag + inklapbaar avondblok + live bijdrage) + link naar `/eten`
+5. **Meld je aan** *(wit)* — uitleg dat opnieuw invullen met hetzelfde huisnummer je opgave bijwerkt, openbare teller, aanmeldformulier (dag + inklapbaar avondblok + live bijdrage) + link naar `/eten`
 6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
 
 `/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina.
