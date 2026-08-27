@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "PORT=8000 STATIC_DIR=. DATA_DIR=./.data node server.js",
     "migreer": "node migreer-json.js",
-    "snack": "node snack.js"
+    "snack": "node snack.js",
+    "test": "node test/lege-bestelling.test.js"
   }
 }

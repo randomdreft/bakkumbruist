@@ -554,7 +554,7 @@ function handleBestelling(req, res) {
 
     const opmerking = (data.opmerking || '').toString().trim().slice(0, 300);
 
-    if (!regels.length && !opmerking) {
+    if (!regels.length) {
       return json(res, 400, {
         error: 'lege_bestelling',
         bericht: 'Er staat nog niets in de bestelling. Zet minstens één snack op 1 of hoger.',

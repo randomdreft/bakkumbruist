@@ -318,7 +318,7 @@
 
         var regels = huidigeRegels();
         var opmerking = opmerkingVeld.value.trim();
-        if (!regels.length && !opmerking) {
+        if (!regels.length) {
             bestelError.textContent = 'Er staat nog niets in de bestelling. Zet minstens één snack op 1 of hoger.';
             bestelError.hidden = false;
             return;
