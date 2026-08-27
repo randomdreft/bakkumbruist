@@ -82,6 +82,15 @@
             var ta = document.getElementById('tarief-avond');
             if (td) td.textContent = euro(TARIEF.dag) + ' per persoon';
             if (ta) ta.textContent = euro(TARIEF.avond) + ' per persoon';
+
+            // Besteldeadline in de hero — uit de database, niet hardcoded.
+            var hd = document.getElementById('hero-deadline');
+            if (hd && data.bestel_deadline_tekst) hd.textContent = data.bestel_deadline_tekst;
+            var hint = document.getElementById('hero-eten-hint');
+            if (hint && data.bestel_deadline_verstreken) {
+                hint.innerHTML = 'De bestelling voor het eten is doorgegeven aan De Toren. ' +
+                    'Je kunt nog wel zien wat er voor jullie genoteerd staat.';
+            }
             herbereken();
         })
         .catch(function () { /* startwaarden blijven staan */ });
