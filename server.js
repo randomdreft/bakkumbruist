@@ -895,11 +895,22 @@ function serveFile(filePath, res, extraHeaders) {
   stream.on('error', () => { res.writeHead(500); res.end('Fout'); });
 }
 
+// Bestandsnamen die er nooit uit mogen, ook al staan ze per ongeluk in de
+// map: kopietjes zoals index.html.bak-20260818 of aanmeldingen.html.pre-eten.
+// Zo'n kopie omzeilt de auth-check, die op het exacte pad matcht. Dit is
+// eerder misgegaan met /proxy/config.ini op metnerdsomtafel.nl; een vangnet
+// in de server is betrouwbaarder dan onthouden dat je opruimt.
+const VERBODEN_BESTAND = /(^\.)|\.bak($|[.-])|\.pre-|\.orig($|[.-])|\.old($|[.-])|~$|\.sw[a-p]$/i;
+
 function serveStatic(pathname, res) {
   let filePath = path.join(STATIC_DIR, decodeURIComponent(pathname));
   if (filePath.endsWith('/')) filePath += 'index.html';
   if (!path.resolve(filePath).startsWith(STATIC_DIR)) {
     res.writeHead(403); return res.end('Verboden');
+  }
+  if (VERBODEN_BESTAND.test(path.basename(filePath))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('Niet gevonden');
   }
   fs.stat(filePath, (err, stat) => {
     if (err || !stat.isFile()) {

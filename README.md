@@ -93,6 +93,8 @@ Allemaal server-side afgedwongen, in deze volgorde:
 
 Verder valideert de server: aantallen als gehele getallen 0–20, snack-id's alleen tegen **actieve** snacks, en de prijs komt altijd uit de database (nooit uit wat de client meestuurt). Simpele rate-limiting per IP (30 schrijfacties per 10 minuten).
 
+De statische server weigert bovendien bestandsnamen die op een kopietje wijzen (`.bak`, `.pre-`, `.orig`, `.old`, `~`, dotfiles). Zo'n kopie van `aanmeldingen.html` zou anders gewoon geserveerd worden: de auth-check matcht op het exacte pad. Vangnet in de code is betrouwbaarder dan onthouden dat je opruimt — **bewaar backups sowieso buiten `/var/www/bakkumbruist/`**, bijvoorbeeld in `~/bakkumbruist-backups/`.
+
 ## Het assortiment beheren
 
 Het formulier, de overzichten en de CSV worden **volledig uit de `snack`-tabel opgebouwd**. Een snack toevoegen of uitzetten is dus één commando en verder niets — geen HTML, JS of query aanpassen. Wijzigingen zijn meteen live, de container hoeft niet herstart.
