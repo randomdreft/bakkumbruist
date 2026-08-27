@@ -1,65 +1,185 @@
 # Bakkum Bruist 2026 — Eikenhorst
 
-Single-page site voor het buurtfeest op de Eikenhorst in Bakkum (gemeente Castricum), met een officieel aanmeldformulier en een beveiligde overzichtspagina voor de organisatie.
+Single-page site voor het buurtfeest op de Eikenhorst in Bakkum (gemeente Castricum), met een officieel aanmeldformulier, een bestelformulier voor het eten en een beveiligde overzichtspagina voor de organisatie.
 
 **Live:** [bakkumbruist.nl](https://bakkumbruist.nl) · **Datum:** zaterdag 12 september 2026
 
 ## Tech
 
-Plain HTML/CSS/JS aan de voorkant (geen framework, geen bundler, geen externe fonts of trackers) + een kleine **zero-dependency Node-server** (`server.js`) die zowel de statische bestanden serveert als de aanmeldingen verwerkt. Opslag is één JSON-bestand op een persistent Docker-volume — bewust simpel, in lijn met de tobygames-server in dezelfde `static-sites`-stack. Geen Google Sheets meer.
+Plain HTML/CSS/JS aan de voorkant (geen framework, geen bundler, geen externe fonts of trackers) + een kleine **zero-dependency Node-server** (`server.js`) die zowel de statische bestanden serveert als de aanmeldingen en bestellingen verwerkt. Opslag is **SQLite** via de ingebouwde `node:sqlite` van Node 22 — dus nog steeds geen npm-install en geen native build in de daily pipeline.
 
 ## Structuur
 
 ```
 .
 ├── index.html         single page (hero, idee, datum, activiteiten, aanmeldformulier + teller, doe mee)
-├── styles.css         huisstijl + alternerende secties + formulier/teller-styling
-├── script.js          jaartal, openbare teller, aanmeld-logica (steppers, kom-je-toggle, verzenden)
+├── eten.html          bestelformulier voor het eten (/eten)
+├── styles.css         huisstijl + alternerende secties + formulier/teller/bestel-styling
+├── script.js          jaartal, openbare teller, aanmeld-logica (steppers, dag/avond, live bijdrage)
+├── eten.js            bestel-logica (huisnummer opzoeken, snacks uit de database, live totaal)
 ├── aanmeldingen.html  beveiligde overzichtspagina voor de organisatie (noindex)
-├── server.js          Node http-server: static files + API + opslag (geen npm-dependencies)
+├── server.js          Node http-server: static files + API (geen npm-dependencies)
+├── db.js              schema, seed en gedeelde constanten (huisnummers, leeftijdsgroepen, tarieven)
+├── migreer-json.js    eenmalige migratie aanmeldingen.json -> SQLite, met zelfcontrole
+├── snack.js           beheer van het snack-assortiment (toevoegen / prijs / aan / uit)
+├── backup-db.js       consistente kopie van de database (VACUUM INTO, WAL-veilig)
 ├── Dockerfile         node:22-alpine, draait server.js op poort 80
-├── package.json       alleen een dev-script voor lokaal draaien
+├── package.json       dev-scripts voor lokaal draaien
 ├── favicon.png
 └── huisstijl/         logo-varianten
 ```
 
-## Backend & opslag
+## Datamodel
 
-De server (`server.js`) draait in de `bakkumbruist`-container (build-based) in `/opt/static-sites/docker-compose.yml`:
+SQLite op `/data/bakkumbruist.db` (Docker-volume `static-sites_bakkumbruist-data`), met `PRAGMA foreign_keys = ON` en WAL.
 
-- `/var/www/bakkumbruist` → `/static` (read-only) — de site
-- named volume `bakkumbruist-data` → `/data` — de aanmeldingen (`/data/aanmeldingen.json`)
+| Tabel | Inhoud |
+|-------|--------|
+| `aanmelding` | één rij per huisnummer: `huisnummer` (UNIQUE), `komt`, `bron`, `naam`, `contact`, `opmerking`, `aangemaakt_op`, `bijgewerkt_op` |
+| `deelnemer` | de aantallen: `aanmelding_id` (FK, CASCADE), `leeftijdsgroep` (`tm8`/`9_13`/`14_18`/`volwassen`), `deelname` (`dag`/`avond`), `aantal`. UNIQUE op (aanmelding, groep, deelname) |
+| `snack` | het assortiment: `slug` (UNIQUE), `naam`, `omschrijving`, `prijs_cent`, `actief`, `volgorde` |
+| `bestelling` | één rij per huis: `aanmelding_id` (FK, UNIQUE), `opmerking`, tijdstempels |
+| `bestelregel` | `bestelling_id` (FK, CASCADE), `snack_id` (FK), `aantal`, `prijs_cent_bij_bestelling`. UNIQUE op (bestelling, snack) |
+| `meta` | sleutel/waarde, o.a. de markering dat de JSON-migratie gedaan is |
 
-**Endpoints:**
+Twee keuzes die uitleg verdienen:
+
+- **`deelnemer` is een aparte tabel, geen acht kolommen in `aanmelding`.** Een leeftijdsgroep of een tariefsoort erbij is dan een rij, geen schemawijziging.
+- **`prijs_cent_bij_bestelling` is opzettelijk gedenormaliseerd.** Wijzigt De Toren de prijs nadat mensen besteld hebben, dan blijven de al verstuurde bevestigingen kloppen. Nieuwe bestellingen pakken vanzelf de nieuwe prijs.
+
+**`komt` is drie-standig** (`ja` / `nee` / `misschien`), niet 0/1: de organisatie kan een adres ook als *misschien* markeren. Overal expliciet vergelijken.
+
+## Deelname en bijdrage
+
+| Soort | Wat | Tarief per persoon |
+|-------|-----|--------------------|
+| `dag` | de hele dag, inclusief activiteiten en eten overdag | € 17,50 |
+| `avond` | alleen het avondprogramma vanaf half acht | € 7,50 |
+
+Eén huis mag beide gebruiken (bijvoorbeeld twee volwassenen de hele dag plus twee vrienden alleen 's avonds). De tarieven staan in `TARIEF_DAG_CENT` / `TARIEF_AVOND_CENT` in `/opt/static-sites/.env`; de site haalt ze op via `/api/instellingen` en heeft ze nergens hardcoded. De client rekent live mee ter informatie, **de server rekent het bedrag altijd zelf na**.
+
+De bijdrage (feest) en de eetbestelling (De Toren) zijn **gescheiden potjes**. Op de organisatiepagina staan ze per huis apart naast elkaar; tel ze niet samen tot één bedrag zonder beide componenten te noemen.
+
+## Endpoints
 
 | Route | Methode | Auth | Doel |
 |-------|---------|------|------|
-| `/api/aanmelding` | POST | nee | Aanmelding opslaan/bijwerken (upsert per huisnummer) |
 | `/api/teller` | GET | nee | Publiek getal: aantal "komt = ja"-adressen (geen persoonsgegevens) |
-| `/aanmeldingen` | GET | **ja** | Dashboard voor de organisatie (todo-tracker + overzicht) |
-| `/api/aanmeldingen` | GET | **ja** | Volledige data + 4-staten-totalen + ontbrekende huisnummers (JSON) |
-| `/api/aanmeldingen.csv` | GET | **ja** | Download als CSV (`;`-gescheiden, UTF-8 BOM) |
-| `/api/mondeling` | POST | **ja** | Adres door de organisatie markeren als *afgemeld* (default) of *misschien* (`{huisnummer, komt}`) |
-| `/api/mondeling` | DELETE | **ja** | Markering ongedaan maken (`{huisnummer}`) |
+| `/api/instellingen` | GET | nee | Tarieven, leeftijdsgroepen, besteldeadline, contactadres |
+| `/api/snacks` | GET | nee | Actieve snacks met prijzen — hiermee bouwt het bestelformulier zichzelf |
+| `/api/aanmelding` | POST | nee | Aanmelding opslaan/bijwerken (upsert per huisnummer) |
+| `/api/bestelstatus?huisnummer=..` | GET | nee | Mag dit huis bestellen, en wat staat er nu? |
+| `/api/bestelling` | POST | nee | Bestelling plaatsen/bijwerken (vervangt de regels in één transactie) |
+| `/aanmeldingen` | GET | **ja** | Dashboard voor de organisatie |
+| `/api/organisatie/overzicht` | GET | **ja** | Alle data + totalen + bestellijst (JSON) |
+| `/api/organisatie/aanmeldingen.csv` | GET | **ja** | Aanmeldingen als CSV |
+| `/api/organisatie/bestellingen.csv` | GET | **ja** | Bestellingen als CSV, met een TOTAAL-slotregel |
+| `/api/mondeling` | POST/DELETE | **ja** | Adres markeren als *afgemeld* of *misschien*, en dat ongedaan maken |
 
-> Auth-kolom = HTTP Basic Auth, **tenzij** het client-IP in `AANMELDINGEN_IP_WHITELIST` staat (zie hieronder).
+> Auth-kolom = HTTP Basic Auth, **tenzij** het client-IP in `AANMELDINGEN_IP_WHITELIST` staat. De oude paden `/api/aanmeldingen(.csv)` blijven werken en vereisen dezelfde auth.
 
-### Dashboard & afmeldingen
+**Privacy.** Er is geen login voor bewoners; identificatie op huisnummer is genoeg voor een straatfeest. `/api/bestelstatus` geeft daarom bewust alleen terug of dit huis mag bestellen, waarom niet, en de eigen bestelregels — **nooit** namen, contactgegevens of aantallen van een ander huis.
 
-Het dashboard rekent met **vier statussen die altijd optellen tot 53**: *aangemeld* (komt = ja), *misschien* (komt mogelijk), *afgemeld* (komt = nee) en *onbekend* (nog niets laten horen). Bovenaan staat een todo-tracker met die vier getallen + een gestapelde voortgangsbalk (groen = aangemeld, geel = misschien, koraal = afgemeld), zodat in één oogopslag zichtbaar is hoeveel adressen nog benaderd moeten worden.
+## Toegangsregels voor het bestellen
 
-Adressen waarvan de organisatie persoonlijk iets hoorde (niet via het formulier) markeert ze met één klik in de lijst **Nog te benaderen** — als **afgemeld** of als **misschien**; dat schuift ze van *onbekend* naar die status. Zo'n markering wordt opgeslagen als een gewoon record in dezelfde lijst (met een intern `bron: 'mondeling'`-vlaggetje; `komt` is `false` voor afgemeld of `'misschien'`) en verschijnt met de bijbehorende pill bij **Alle reacties** — dus geen aparte boekhouding. Bij die rij staat **ongedaan maken** om de markering terug te draaien; gewone formulier-reacties zijn niet via die knop te verwijderen (HTTP 404) en worden ook nooit overschreven door een markering (HTTP 409). *(De personen-statistiek telt alleen wie zéker komt; een misschien telt dus nog niet mee in de aantallen.)*
+Allemaal server-side afgedwongen, in deze volgorde:
 
-**Geldige huisnummers Eikenhorst** (hardcoded in `server.js` én `script.js`): oneven 1–77 en even 2–28, samen 53 adressen. De server-side check is de waterdichte laag.
+1. Huisnummer niet in de lijst van 53 adressen → *"Dit nummer kennen we niet op de Eikenhorst"*
+2. Geen aanmelding → eerst aanmelden, met een link naar het formulier
+3. `komt = misschien` → eerst officieel aanmelden
+4. `komt = nee` → *"Volgens onze administratie komen jullie dit jaar niet"*
+5. Wel aangemeld maar **nul dagdeelnemers** → geen formulier; het eten wordt om half zes uitgedeeld en het avondprogramma begint pas om half acht
+6. Deadline verstreken → readonly, met de al geplaatste bestelling zichtbaar
 
-**Auth:** HTTP Basic Auth op alle `/aanmeldingen*`-routes (gebruiker + wachtwoord). Het wachtwoord komt uit de omgevingsvariabele `AANMELDINGEN_WACHTWOORD`, die in `/opt/static-sites/.env` (chmod 600) staat — **niet** in deze repo. Wachtwoord wijzigen:
+Verder valideert de server: aantallen als gehele getallen 0–20, snack-id's alleen tegen **actieve** snacks, en de prijs komt altijd uit de database (nooit uit wat de client meestuurt). Simpele rate-limiting per IP (30 schrijfacties per 10 minuten).
+
+## Het assortiment beheren
+
+Het formulier, de overzichten en de CSV worden **volledig uit de `snack`-tabel opgebouwd**. Een snack toevoegen of uitzetten is dus één commando en verder niets — geen HTML, JS of query aanpassen. Wijzigingen zijn meteen live, de container hoeft niet herstart.
+
+```bash
+sudo docker exec bakkumbruist node snack.js lijst                      # wat staat er nu
+sudo docker exec bakkumbruist node snack.js toevoegen patat "Patat" 275   # nieuw (prijs in CENTEN)
+sudo docker exec bakkumbruist node snack.js prijs frikandel 310        # prijs wijzigen
+sudo docker exec bakkumbruist node snack.js uit kaassouffle            # tijdelijk van de kaart
+sudo docker exec bakkumbruist node snack.js aan kaassouffle            # weer erop
+sudo docker exec bakkumbruist node snack.js naam patat "Patat groot"   # hernoemen
+sudo docker exec bakkumbruist node snack.js volgorde patat 5           # positie in de lijst
+```
+
+**Prijzen altijd in centen** (`275` = € 2,75). Het script waarschuwt als een bedrag boven € 50 uitkomt — meestal betekent dat euro's in plaats van centen. Een snack **uitzetten verwijdert niets**: bestaande bestellingen en hun bedragen blijven staan, de snack verdwijnt alleen uit het formulier.
+
+## Data bekijken, back-uppen, terugzetten
+
+De database draait in **WAL-modus**. Het `.db`-bestand alleen kopiëren is daarom níét genoeg — dan mis je alles wat nog in `bakkumbruist.db-wal` staat. Gebruik altijd `backup-db.js`, dat een `VACUUM INTO` doet: één consistent bestand, zonder de site stil te leggen.
+
+```bash
+# Back-up maken
+sudo docker exec bakkumbruist node /app/backup-db.js /tmp/bb.db
+sudo docker exec bakkumbruist cat /tmp/bb.db > ~/bakkumbruist-$(date +%F).db
+sudo docker exec bakkumbruist rm -f /tmp/bb.db
+
+# Snel iets opzoeken
+sudo docker exec bakkumbruist node -e "
+  const db=require('/app/db').open();
+  console.log(db.prepare('SELECT huisnummer, komt, naam FROM aanmelding ORDER BY huisnummer').all());"
+
+# Terugzetten (site gaat even uit de lucht)
+cd /opt/static-sites && sudo docker compose stop bakkumbruist
+sudo cp ~/bakkumbruist-2026-09-01.db /var/lib/docker/volumes/static-sites_bakkumbruist-data/_data/bakkumbruist.db
+sudo rm -f /var/lib/docker/volumes/static-sites_bakkumbruist-data/_data/bakkumbruist.db-wal \
+           /var/lib/docker/volumes/static-sites_bakkumbruist-data/_data/bakkumbruist.db-shm
+sudo docker compose start bakkumbruist
+```
+
+> Bij terugzetten moeten `-wal` en `-shm` weg, anders plakt SQLite de oude journal op de teruggezette database.
+
+Het TROGDOR-backupscript (`/usr/local/sbin/trogdor-backup.sh`, dagelijks 03:00) doet precies dit en zet het resultaat als `content/bakkumbruist.db` in de dagelijkse backup (GFS-retentie, daarna naar de NAS).
+
+**Het oude `aanmeldingen.json` is sinds 27-08-2026 een bevroren archief.** De database is de enige bron van waarheid; er wordt niet meer naar de JSON geschreven. Het bestand blijft staan (en gaat mee in de backup als `bakkumbruist-aanmeldingen-archief.json`) voor het geval we ooit iets willen naslaan.
+
+## Migratie van de JSON
+
+`migreer-json.js` heeft de 32 bestaande reacties omgezet. Alle bestaande aantallen zijn `deelname = 'dag'` geworden — die mensen hadden zich voor de hele dag opgegeven, het avondtarief bestond nog niet.
+
+Het script is **idempotent** en controleert zichzelf: het telt aanmeldingen, "komt = ja"-huizen en het totaal aantal personen uit zowel de JSON als de database en vergelijkt die binnen dezelfde transactie. Wijkt er iets af, dan wordt teruggedraaid en verandert er niets. De migratie wordt gemarkeerd in de `meta`-tabel; een tweede run doet niets en rapporteert alleen. `server.js` roept hem bij het opstarten aan, zodat een verse container zichzelf vult.
+
+Uitkomst van de echte migratie (27-08-2026):
+
+```
+32 aanmelding(en) ingevoegd.
+JSON       aanmeldingen=32  komt=ja: 19  personen: 69  (t/m 8: 18, 9–13: 12, 14–18: 2, volwassen: 37)
+database   aanmeldingen=32  komt=ja: 19  personen: 69  (t/m 8: 18, 9–13: 12, 14–18: 2, volwassen: 37)
+```
+
+Handmatig draaien (rapporteert alleen als er al gemigreerd is):
+
+```bash
+sudo docker exec bakkumbruist node /app/migreer-json.js
+```
+
+## Organisatiepagina
+
+`/aanmeldingen` (noindex, beveiligd) toont:
+
+- **Todo-tracker**: vier statussen die altijd optellen tot 53 — aangemeld / misschien / afgemeld / onbekend, met gestapelde voortgangsbalk.
+- **Totalen**: personen overdag en 's avonds, uitgesplitst per leeftijdsgroep, plus de totale bijdrage en het totale eetbedrag.
+- **Bestellijst voor De Toren**: één compact blok met per snack het totaal aantal stuks en het bedrag, met een knop om het als platte tekst te kopiëren. Dit is wat er letterlijk doorgebeld wordt en staat daarom bewust los van de rest.
+- **Bestellingen per huis**: de basis voor de tikkies. Kolommen komen uit de snacktabel.
+- **Alle reacties**: per huis de dag- en avondaantallen per leeftijdsgroep, en **bijdrage, eten en totaal alle drie zichtbaar**.
+- **Wie ontbreekt**: huizen zonder aanmelding (met één klik te markeren als *afgemeld* of *misschien*) en aangemelde dag-huizen zonder bestelling.
+- **CSV-export** van zowel de aanmeldingen als de bestellingen.
+
+Een huis dat besteld heeft en daarna zijn aanmelding wijzigt naar "komt niet" of "alleen avond" wordt **niet stilzwijgend meegeteld** voor De Toren, maar apart gemeld onder de bestellijst — even navragen dus.
+
+**Auth:** HTTP Basic Auth op alle organisatie-routes, inclusief de data-endpoints. Het wachtwoord komt uit `AANMELDINGEN_WACHTWOORD` in `/opt/static-sites/.env` (chmod 600), **niet** uit deze repo. Wijzigen:
 
 ```bash
 sudo sed -i 's/^AANMELDINGEN_WACHTWOORD=.*/AANMELDINGEN_WACHTWOORD=NIEUW/' /opt/static-sites/.env
 cd /opt/static-sites && sudo docker compose up -d bakkumbruist
 ```
 
-**IP-whitelist (geen wachtwoord nodig):** vanaf vertrouwde IP's mag het dashboard zónder wachtwoord. Zet ze komma-gescheiden — los IP of CIDR-range, IPv4 én IPv6 door elkaar — in `AANMELDINGEN_IP_WHITELIST` in `/opt/static-sites/.env`:
+**IP-whitelist (geen wachtwoord nodig):** komma-gescheiden, los IP of CIDR-range, IPv4 én IPv6 door elkaar, in `AANMELDINGEN_IP_WHITELIST` in `/opt/static-sites/.env`:
 
 ```bash
 # voorbeeld (documentatie-ranges; de echte staan in .env, niet in deze repo)
@@ -67,33 +187,31 @@ AANMELDINGEN_IP_WHITELIST=203.0.113.5,2001:db8::/48
 cd /opt/static-sites && sudo docker compose up -d bakkumbruist   # geen --build nodig
 ```
 
-De server leest het echte client-IP uit de `X-Real-IP`-header die NPM zet (gelijk aan `$remote_addr`, dus niet door de bezoeker te spoofen). Staat dat IP in de lijst, dan wordt Basic Auth overgeslagen; anders geldt gewoon het wachtwoord. Leeg laten = altijd wachtwoord.
+De server leest het echte client-IP uit de `X-Real-IP`-header die NPM zet (gelijk aan `$remote_addr`, dus niet door de bezoeker te spoofen).
 
-## Data bekijken, back-uppen, resetten
+## Instellingen (omgeving)
 
-```bash
-# Bekijken (op de host)
-sudo docker exec bakkumbruist cat /data/aanmeldingen.json
+Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijzigen = `.env` editen + `docker compose up -d bakkumbruist` (géén `--build`).
 
-# Back-up maken
-sudo docker exec bakkumbruist cat /data/aanmeldingen.json > ~/aanmeldingen-backup.json
-
-# Resetten (alles wissen)
-sudo docker exec bakkumbruist sh -c 'rm -f /data/aanmeldingen.json' && sudo docker restart bakkumbruist
-```
-
-Alle reacties (aanmeldingen, formulier-afmeldingen én mondelinge afmeldingen) staan in één bestand `aanmeldingen.json`. *(Het oude losse `mondeling.json` is bij het opstarten eenmalig in deze lijst gevouwen en daarna verwijderd.)*
-
-De data zit in het Docker-volume `static-sites_bakkumbruist-data`. Het TROGDOR-backupscript (`/usr/local/sbin/trogdor-backup.sh`, dagelijks 03:00) dumpt `aanmeldingen.json` als `content/bakkumbruist-aanmeldingen.json` in de dagelijkse backup (GFS-retentie, daarna naar de NAS). De oude poll-data stond in een losse Google Sheet en is niet meer in gebruik; die mag weg.
+| Variabele | Betekenis |
+|-----------|-----------|
+| `AANMELDINGEN_WACHTWOORD` | Wachtwoord voor de organisatiepagina |
+| `AANMELDINGEN_IP_WHITELIST` | IP's/ranges die zonder wachtwoord mogen |
+| `BESTEL_DEADLINE` | Het moment zelf, ISO **met expliciete offset** (`2026-09-08T23:59:00+02:00`) — geen twijfel over zomertijd |
+| `BESTEL_DEADLINE_TEKST` | Hoe de deadline op de site staat, in gewone taal |
+| `CONTACT_EMAIL` | Adres in foutmeldingen en na de deadline |
+| `TARIEF_DAG_CENT` / `TARIEF_AVOND_CENT` | Bijdrage per persoon in centen |
 
 ## Secties (in volgorde)
 
 1. **Hero** *(wit)* — logo, "De datum is geprikt"-badge, CTA `Meld je aan` + WhatsApp
 2. **Wat is Bakkum Bruist?** *(duinzand)*
 3. **De datum staat vast** *(wit)* — datum-badge 12 sep + uitleg waarom
-4. **Dit willen we sowieso doen** *(duinzand)* — activiteitenlijst (stormbaan onder voorbehoud)
-5. **Meld je aan** *(wit)* — openbare teller + aanmeldformulier
+4. **Waar we aan werken** *(duinzand)* — activiteitenlijst
+5. **Meld je aan** *(wit)* — openbare teller + aanmeldformulier (dag + inklapbaar avondblok + live bijdrage) + link naar `/eten`
 6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
+
+`/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina.
 
 ## Lokaal draaien
 
@@ -107,22 +225,24 @@ cd /var/www/bakkumbruist && npm run dev    # http://localhost:8000, data in ./.d
 
 ```bash
 # 1. Edit live in /var/www/bakkumbruist/
-# 2. Bij wijziging van server.js / Dockerfile: container herbouwen
+# 2. Bij wijziging van server.js / db.js / Dockerfile: container herbouwen
 cd /opt/static-sites && sudo docker compose up -d --build bakkumbruist
 #    (puur HTML/CSS/JS wijzigen werkt direct — /static is een live read-only mount)
 # 3. Kopieer naar de repo en push (alles in het Nederlands)
 cp -r /var/www/bakkumbruist/* /home/randal/bakkumbruist-repo/
-cd /home/randal/bakkumbruist-repo && git add -A && git commit && git push
+cd /home/randal/bakkumbruist-repo && git add <bestanden> && git commit && git push
 ```
 
-De daily update-cron (`trogdor-pull-updates.sh`) bouwt deze container automatisch mee, omdat `build_stack tobygames /opt/static-sites` de hele stack-map bouwt.
+De daily update-cron (`trogdor-pull-updates.sh`) bouwt deze container automatisch mee.
 
 ## Status
 
 - ✅ Datum geprikt: zaterdag 12 september 2026
 - ✅ Aanmeldformulier live (per huishouden, upsert, komt/komt-niet, leeftijdsgroepen)
-- ✅ Eigen opslag op de server (JSON op Docker-volume), Google Sheet uitgefaseerd
+- ✅ **Opslag in SQLite** (was JSON), met gecontroleerde migratie van de 32 bestaande reacties
+- ✅ **Dag- en avonddeelname** met eigen tarief en live berekening van de bijdrage
+- ✅ **Bestelformulier voor het eten** op `/eten`, gekoppeld aan de aanmelding, assortiment volledig data-gedreven
 - ✅ Openbare teller (alleen unieke "komt = ja"-adressen)
-- ✅ Beveiligd dashboard `/aanmeldingen`: todo-tracker (aangemeld / misschien / afgemeld / onbekend), totalen, door de organisatie gezette afmeldingen én misschien-markeringen (één klik, ongedaan te maken) en CSV-export
-- ✅ IP-whitelist: dashboard zonder wachtwoord vanaf vertrouwde IP's (`AANMELDINGEN_IP_WHITELIST`, IPv4 + IPv6)
-- ⏳ Bijdrage (tikkie) wordt later apart gecommuniceerd
+- ✅ Beveiligd dashboard `/aanmeldingen`: tracker, totalen, bestellijst voor De Toren, bestellingen per huis, CSV-exports
+- ✅ IP-whitelist: dashboard zonder wachtwoord vanaf vertrouwde IP's
+- ⏳ Tikkies volgen later, apart voor de bijdrage en voor het eten

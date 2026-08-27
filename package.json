@@ -1,8 +1,10 @@
 {
   "name": "bakkumbruist",
   "private": true,
-  "description": "Bakkum Bruist 2026 — site + aanmeld-backend (zero-dependency Node-server)",
+  "description": "Bakkum Bruist 2026 — site + aanmeld- en bestelbackend (zero-dependency Node-server, SQLite via node:sqlite)",
   "scripts": {
-    "dev": "PORT=8000 STATIC_DIR=. DATA_DIR=./.data node server.js"
+    "dev": "PORT=8000 STATIC_DIR=. DATA_DIR=./.data node server.js",
+    "migreer": "node migreer-json.js",
+    "snack": "node snack.js"
   }
 }

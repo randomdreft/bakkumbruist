@@ -90,7 +90,7 @@
             <form id="aanmeld-form" class="aanmeld-form" novalidate>
                 <div class="form-field">
                     <label for="f-huisnummer">Huisnummer Eikenhorst</label>
-                    <input type="number" id="f-huisnummer" name="huisnummer" min="1" max="77" step="1" inputmode="numeric" required autocomplete="off">
+                    <input type="text" id="f-huisnummer" name="huisnummer" inputmode="numeric" pattern="[0-9]*" maxlength="2" required autocomplete="off">
                 </div>
 
                 <fieldset class="keuze-groep">
@@ -108,43 +108,95 @@
                 </fieldset>
 
                 <div class="aantallen-groep" id="aantallen-groep" hidden>
-                    <p class="aantallen-intro">Met hoeveel komen jullie?</p>
+                    <p class="aantallen-intro">Met hoeveel komen jullie de hele dag? <span class="tarief-hint" id="tarief-dag">&euro;&nbsp;17,50 per persoon</span></p>
 
                     <div class="teller-rij">
-                        <label for="f-tm8">Kinderen t/m 8 jaar</label>
+                        <label for="f-dag_tm8">Kinderen t/m 8 jaar</label>
                         <div class="stepper" data-stepper>
-                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder kinderen t/m 8">−</button>
-                            <input type="number" id="f-tm8" name="aantal_tm8" min="0" max="20" step="1" value="0" inputmode="numeric">
-                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer kinderen t/m 8">+</button>
+                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder kinderen t/m 8 de hele dag">−</button>
+                            <input type="number" id="f-dag_tm8" name="dag_tm8" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="dag" data-groep="tm8">
+                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer kinderen t/m 8 de hele dag">+</button>
                         </div>
                     </div>
 
                     <div class="teller-rij">
-                        <label for="f-9-13">Kinderen 9 t/m 13 jaar</label>
+                        <label for="f-dag_9_13">Kinderen 9 t/m 13 jaar</label>
                         <div class="stepper" data-stepper>
-                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder kinderen 9 t/m 13">−</button>
-                            <input type="number" id="f-9-13" name="aantal_9_13" min="0" max="20" step="1" value="0" inputmode="numeric">
-                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer kinderen 9 t/m 13">+</button>
+                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder kinderen 9 t/m 13 de hele dag">−</button>
+                            <input type="number" id="f-dag_9_13" name="dag_9_13" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="dag" data-groep="9_13">
+                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer kinderen 9 t/m 13 de hele dag">+</button>
                         </div>
                     </div>
 
                     <div class="teller-rij">
-                        <label for="f-14-18">Jongeren 14 t/m 18 jaar</label>
+                        <label for="f-dag_14_18">Jongeren 14 t/m 18 jaar</label>
                         <div class="stepper" data-stepper>
-                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder jongeren 14 t/m 18">−</button>
-                            <input type="number" id="f-14-18" name="aantal_14_18" min="0" max="20" step="1" value="0" inputmode="numeric">
-                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer jongeren 14 t/m 18">+</button>
+                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder jongeren 14 t/m 18 de hele dag">−</button>
+                            <input type="number" id="f-dag_14_18" name="dag_14_18" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="dag" data-groep="14_18">
+                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer jongeren 14 t/m 18 de hele dag">+</button>
                         </div>
                     </div>
 
                     <div class="teller-rij">
-                        <label for="f-volw">Volwassenen (vanaf 19)</label>
+                        <label for="f-dag_volwassen">Volwassenen (vanaf 19)</label>
                         <div class="stepper" data-stepper>
-                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder volwassenen">−</button>
-                            <input type="number" id="f-volw" name="aantal_volwassenen" min="0" max="20" step="1" value="0" inputmode="numeric">
-                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer volwassenen">+</button>
+                            <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder volwassenen de hele dag">−</button>
+                            <input type="number" id="f-dag_volwassen" name="dag_volwassen" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="dag" data-groep="volwassen">
+                            <button type="button" class="stepper-btn" data-step="1" aria-label="Meer volwassenen de hele dag">+</button>
                         </div>
                     </div>
+                </div>
+
+                <details class="avond-blok" id="avond-blok" hidden>
+                    <summary class="avond-summary" id="avond-summary">
+                        <span class="avond-summary-titel">Komt er nog iemand alleen 's avonds?</span>
+                        <span class="avond-summary-hint" id="tarief-avond">&euro;&nbsp;7,50 per persoon</span>
+                        <span class="avond-summary-telling" id="avond-telling" hidden></span>
+                    </summary>
+                    <div class="avond-body">
+                        <p class="avond-uitleg">Het avondprogramma begint om half acht met de DJ. Wie alleen 's avonds aanschuift betaalt een lager bedrag, want die mist de activiteiten en het eten overdag.</p>
+
+                        <div class="teller-rij">
+                            <label for="f-avond_tm8">Kinderen t/m 8 jaar</label>
+                            <div class="stepper" data-stepper>
+                                <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder kinderen t/m 8 alleen 's avonds">−</button>
+                                <input type="number" id="f-avond_tm8" name="avond_tm8" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="avond" data-groep="tm8">
+                                <button type="button" class="stepper-btn" data-step="1" aria-label="Meer kinderen t/m 8 alleen 's avonds">+</button>
+                            </div>
+                        </div>
+
+                        <div class="teller-rij">
+                            <label for="f-avond_9_13">Kinderen 9 t/m 13 jaar</label>
+                            <div class="stepper" data-stepper>
+                                <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder kinderen 9 t/m 13 alleen 's avonds">−</button>
+                                <input type="number" id="f-avond_9_13" name="avond_9_13" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="avond" data-groep="9_13">
+                                <button type="button" class="stepper-btn" data-step="1" aria-label="Meer kinderen 9 t/m 13 alleen 's avonds">+</button>
+                            </div>
+                        </div>
+
+                        <div class="teller-rij">
+                            <label for="f-avond_14_18">Jongeren 14 t/m 18 jaar</label>
+                            <div class="stepper" data-stepper>
+                                <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder jongeren 14 t/m 18 alleen 's avonds">−</button>
+                                <input type="number" id="f-avond_14_18" name="avond_14_18" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="avond" data-groep="14_18">
+                                <button type="button" class="stepper-btn" data-step="1" aria-label="Meer jongeren 14 t/m 18 alleen 's avonds">+</button>
+                            </div>
+                        </div>
+
+                        <div class="teller-rij">
+                            <label for="f-avond_volwassen">Volwassenen (vanaf 19)</label>
+                            <div class="stepper" data-stepper>
+                                <button type="button" class="stepper-btn" data-step="-1" aria-label="Minder volwassenen alleen 's avonds">−</button>
+                                <input type="number" id="f-avond_volwassen" name="avond_volwassen" min="0" max="20" step="1" value="0" inputmode="numeric" data-soort="avond" data-groep="volwassen">
+                                <button type="button" class="stepper-btn" data-step="1" aria-label="Meer volwassenen alleen 's avonds">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="bijdrage-blok" id="bijdrage-blok" hidden>
+                    <p class="bijdrage-tekst" id="bijdrage-tekst" role="status" aria-live="polite">Jullie bijdrage komt daarmee op <strong id="bijdrage-bedrag">&euro;&nbsp;0,00</strong></p>
+                    <p class="bijdrage-uitleg" id="bijdrage-uitleg"></p>
                 </div>
 
                 <div class="form-field">
@@ -169,6 +221,8 @@
             </form>
 
             <div class="aanmeld-feedback" id="aanmeld-feedback" role="status" aria-live="polite" hidden></div>
+
+            <p class="meta-link" id="eten-link-blok">Al aangemeld en kom je overdag? <a href="/eten">Bestel hier je friet en snacks bij snackbar De Toren &rarr;</a></p>
         </section>
 
         <section id="meedoen" class="section-accent" aria-labelledby="meedoen-title">

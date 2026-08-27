@@ -7,6 +7,11 @@
     var CONTACT_EMAIL = 'slems_verenigd1q@icloud.com';
     var WHATSAPP_LINK = 'https://chat.whatsapp.com/GjjAjOYPuXJGOPXmx4aMYU?mode=gi_t';
 
+    // Tarieven in centen. Dit zijn alleen startwaarden voor de weergave; de
+    // server rekent het definitieve bedrag na en levert de echte tarieven via
+    // /api/instellingen.
+    var TARIEF = { dag: 1750, avond: 750 };
+
     // ---------- Geldige huisnummers (client-side; server is de waterdichte laag) ----------
     function isValidHuisnummer(n) {
         if (!Number.isInteger(n)) return false;
@@ -19,6 +24,10 @@
         return String(s).replace(/[&<>"']/g, function (c) {
             return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
         });
+    }
+
+    function euro(cent) {
+        return '€ ' + (cent / 100).toFixed(2).replace('.', ',');
     }
 
     // ---------- Openbare teller ----------
@@ -53,9 +62,77 @@
 
     var huisnummerInput = document.getElementById('f-huisnummer');
     var aantallenGroep = document.getElementById('aantallen-groep');
+    var avondBlok = document.getElementById('avond-blok');
+    var avondTelling = document.getElementById('avond-telling');
+    var bijdrageBlok = document.getElementById('bijdrage-blok');
+    var bijdrageBedrag = document.getElementById('bijdrage-bedrag');
+    var bijdrageUitleg = document.getElementById('bijdrage-uitleg');
     var errorBox = document.getElementById('aanmeld-error');
     var submitBtn = document.getElementById('aanmeld-submit');
     var feedbackBox = document.getElementById('aanmeld-feedback');
+    var etenLinkBlok = document.getElementById('eten-link-blok');
+
+    // Tarieven ophalen zodat de site geen bedragen hardcoded houdt.
+    fetch('/api/instellingen', { headers: { 'Accept': 'application/json' } })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+            if (!data || !data.tarief_cent) return;
+            TARIEF = data.tarief_cent;
+            var td = document.getElementById('tarief-dag');
+            var ta = document.getElementById('tarief-avond');
+            if (td) td.textContent = euro(TARIEF.dag) + ' per persoon';
+            if (ta) ta.textContent = euro(TARIEF.avond) + ' per persoon';
+            herbereken();
+        })
+        .catch(function () { /* startwaarden blijven staan */ });
+
+    // ---------- Aantallen uitlezen ----------
+    // De tellers dragen zelf hun soort (dag/avond) en leeftijdsgroep, zodat
+    // een extra groep alleen HTML kost en geen JS-wijziging.
+    var tellerVelden = form.querySelectorAll('input[data-soort][data-groep]');
+
+    function leesAantallen() {
+        var uit = { dag: {}, avond: {} };
+        Array.prototype.forEach.call(tellerVelden, function (el) {
+            var soort = el.getAttribute('data-soort');
+            var groep = el.getAttribute('data-groep');
+            var v = parseInt(el.value, 10);
+            uit[soort][groep] = Number.isInteger(v) && v > 0 ? v : 0;
+        });
+        return uit;
+    }
+    function somVan(groep) {
+        var t = 0;
+        for (var k in groep) if (Object.prototype.hasOwnProperty.call(groep, k)) t += groep[k];
+        return t;
+    }
+
+    // ---------- Live berekening van de bijdrage ----------
+    function herbereken() {
+        var a = leesAantallen();
+        var dag = somVan(a.dag);
+        var avond = somVan(a.avond);
+
+        // Badge op het (mogelijk ingeklapte) avondblok
+        if (avondTelling) {
+            avondTelling.hidden = avond === 0;
+            avondTelling.textContent = avond === 1 ? '1 avondgast' : avond + ' avondgasten';
+        }
+
+        if (!bijdrageBlok) return;
+        if (huidigeKomt() !== 'ja' || (dag + avond) === 0) {
+            bijdrageBlok.hidden = true;
+            return;
+        }
+        var cent = dag * TARIEF.dag + avond * TARIEF.avond;
+        bijdrageBedrag.textContent = euro(cent);
+        bijdrageBlok.hidden = false;
+
+        var delen = [];
+        if (dag) delen.push(dag + (dag === 1 ? ' persoon' : ' personen') + ' de hele dag × ' + euro(TARIEF.dag));
+        if (avond) delen.push(avond + (avond === 1 ? ' persoon' : ' personen') + " alleen 's avonds × " + euro(TARIEF.avond));
+        bijdrageUitleg.textContent = delen.join('  +  ');
+    }
 
     // Steppers (− / +) rond de aantallen-velden
     var steppers = document.querySelectorAll('[data-stepper]');
@@ -73,8 +150,10 @@
                 if (Number.isInteger(min)) v = Math.max(min, v);
                 if (Number.isInteger(max)) v = Math.min(max, v);
                 input.value = v;
+                herbereken();
             });
         });
+        if (input) input.addEventListener('input', herbereken);
     });
 
     // "Kom je?" — toon/verberg de aantallen alleen bij "Ja"
@@ -83,8 +162,10 @@
         return checked ? checked.value : null;
     }
     function toonAantallen() {
-        var komt = huidigeKomt();
-        aantallenGroep.hidden = (komt !== 'ja');
+        var ja = huidigeKomt() === 'ja';
+        aantallenGroep.hidden = !ja;
+        if (avondBlok) avondBlok.hidden = !ja;
+        herbereken();
     }
     Array.prototype.forEach.call(form.querySelectorAll('input[name="komt"]'), function (radio) {
         radio.addEventListener('change', toonAantallen);
@@ -110,30 +191,38 @@
 
     function toonFeedback(html) {
         form.hidden = true;
+        if (etenLinkBlok) etenLinkBlok.hidden = true;
         feedbackBox.innerHTML = html;
         feedbackBox.hidden = false;
         feedbackBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    function feedbackKomt(updated) {
-        var titel = updated ? 'We hebben jullie aanmelding bijgewerkt.' : 'Top, jullie staan genoteerd!';
-        toonFeedback(
-            '<p class="feedback-msg"><strong>' + titel + '</strong> We houden je op de hoogte via de WhatsApp-groep. ' +
-            'Over de bijdrage (tikkie) laten we later iets weten.</p>' +
-            '<p class="feedback-cta"><a href="' + WHATSAPP_LINK + '" target="_blank" rel="noopener">Sluit je aan bij de WhatsApp-groep →</a></p>'
-        );
+    function feedbackKomt(data) {
+        var titel = data.status === 'updated'
+            ? 'We hebben jullie aanmelding bijgewerkt.'
+            : 'Top, jullie staan genoteerd!';
+
+        var regels = '';
+        if (data.dag) regels += data.dag + (data.dag === 1 ? ' persoon' : ' personen') + ' de hele dag';
+        if (data.avond) regels += (regels ? ' en ' : '') + data.avond + (data.avond === 1 ? ' persoon' : ' personen') + " alleen 's avonds";
+
+        var html = '<p class="feedback-msg"><strong>' + titel + '</strong> ' +
+            (regels ? 'We noteren ' + regels + '. ' : '') +
+            'Jullie bijdrage komt daarmee op <strong>' + euro(data.bijdrage_cent || 0) + '</strong>. ' +
+            'Over de tikkie laten we later iets weten.</p>';
+
+        if (data.mag_bestellen) {
+            html += '<p class="feedback-eten"><a href="/eten">Bestel meteen jullie friet en snacks bij De Toren →</a></p>';
+        }
+        html += '<p class="feedback-cta"><a href="' + WHATSAPP_LINK + '" target="_blank" rel="noopener">Sluit je aan bij de WhatsApp-groep →</a></p>';
+        toonFeedback(html);
     }
+
     function feedbackKomtNiet(updated) {
         var msg = updated
             ? 'We hebben jullie aanmelding bijgewerkt — jullie zijn er dit jaar niet bij. Bedankt voor het doorgeven!'
             : 'Jammer dat jullie er dit jaar niet bij zijn — bedankt voor het doorgeven. Volgend jaar weer!';
         toonFeedback('<p class="feedback-msg"><strong>' + msg + '</strong></p>');
-    }
-
-    function getAantal(name) {
-        var el = form.querySelector('[name="' + name + '"]');
-        var v = parseInt(el.value, 10);
-        return Number.isInteger(v) && v > 0 ? v : 0;
     }
 
     function submitAanmelding() {
@@ -156,23 +245,18 @@
             return;
         }
 
-        var tm8 = getAantal('aantal_tm8');
-        var n9_13 = getAantal('aantal_9_13');
-        var n14_18 = getAantal('aantal_14_18');
-        var volw = getAantal('aantal_volwassenen');
+        var aantallen = leesAantallen();
+        var totaal = somVan(aantallen.dag) + somVan(aantallen.avond);
 
-        if (komt === 'ja' && (tm8 + n9_13 + n14_18 + volw) < 1) {
-            showError('Met hoeveel personen komen jullie? Vul minstens 1 in.');
+        if (komt === 'ja' && totaal < 1) {
+            showError('Met hoeveel personen komen jullie? Vul er minstens 1 in, overdag of ’s avonds.');
             return;
         }
 
         var payload = {
             huisnummer: huisnummer,
             komt: komt,
-            aantal_tm8: tm8,
-            aantal_9_13: n9_13,
-            aantal_14_18: n14_18,
-            aantal_volwassenen: volw,
+            deelnemers: aantallen,
             naam: form.querySelector('[name="naam"]').value.trim(),
             contact: form.querySelector('[name="contact"]').value.trim()
         };
@@ -191,9 +275,8 @@
                 setLoading(false);
                 if (r.ok && r.data && (r.data.status === 'ok' || r.data.status === 'updated')) {
                     renderTeller(r.data.adressen, r.data.totaal);
-                    var updated = r.data.status === 'updated';
-                    if (r.data.komt) feedbackKomt(updated);
-                    else feedbackKomtNiet(updated);
+                    if (r.data.komt) feedbackKomt(r.data);
+                    else feedbackKomtNiet(r.data.status === 'updated');
                     return;
                 }
                 if (r.data && r.data.error === 'ongeldig_huisnummer') {
@@ -203,7 +286,11 @@
                     return;
                 }
                 if (r.data && r.data.error === 'geen_personen') {
-                    showError('Met hoeveel personen komen jullie? Vul minstens 1 in.');
+                    showError('Met hoeveel personen komen jullie? Vul er minstens 1 in, overdag of ’s avonds.');
+                    return;
+                }
+                if (r.data && r.data.error === 'te_veel_verzoeken') {
+                    showError('Je hebt het formulier net al een paar keer verstuurd. Wacht even en probeer het opnieuw.');
                     return;
                 }
                 netwerkfout();

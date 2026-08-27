@@ -13,6 +13,10 @@
 
 * { box-sizing: border-box; }
 
+/* Het hidden-attribuut moet het altijd winnen. Zonder deze regel toont een
+   element met een eigen display (flex/grid) zich gewoon, ook met hidden erop. */
+[hidden] { display: none !important; }
+
 html {
     scroll-behavior: smooth;
 }
@@ -705,4 +709,314 @@ footer {
 }
 .feedback-cta a {
     font-weight: bold;
+}
+
+/* ===========================================================================
+   Dag- en avonddeelname (aanmeldformulier)
+   =========================================================================== */
+
+/* Kopregel boven een blok tellers, met het tarief ernaast */
+.aantallen-intro .tarief-hint {
+    display: inline-block;
+    font-weight: normal;
+    font-size: 0.85em;
+    background: var(--wit);
+    color: var(--zeeblauw);
+    border-radius: 100px;
+    padding: 2px 10px;
+    margin-left: 6px;
+    white-space: nowrap;
+}
+
+/* Het avondblok: standaard ingeklapt en visueel rustiger dan het dagblok,
+   zodat het formulier niet zwaarder oogt dan het was. */
+.avond-blok {
+    border: 2px solid rgba(15, 76, 92, 0.18);
+    border-radius: 12px;
+    margin: 0 0 18px;
+    background: var(--wit);
+}
+.avond-blok[open] {
+    border-color: var(--zeeblauw);
+}
+.avond-summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    /* Ruime raakvlakken: dit wordt op een telefoon met een duim bediend.
+       Rechts blijft ruimte vrij voor het +/− teken, dat absoluut staat zodat
+       het bij smalle schermen niet op een eigen regel valt. */
+    padding: 16px 44px 16px 18px;
+    min-height: 56px;
+    cursor: pointer;
+    list-style: none;
+    font-weight: bold;
+    color: var(--diepblauw);
+    border-radius: 10px;
+}
+.avond-summary::-webkit-details-marker { display: none; }
+.avond-summary::after {
+    content: "+";
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5em;
+    line-height: 1;
+    color: var(--zeeblauw);
+}
+.avond-blok[open] .avond-summary::after { content: "−"; }
+.avond-summary:hover { background: rgba(26, 145, 168, 0.06); }
+.avond-summary:focus-visible {
+    outline: 3px solid var(--zonnegeel);
+    outline-offset: 2px;
+}
+.avond-summary-hint {
+    font-weight: normal;
+    font-size: 0.85em;
+    background: rgba(26, 145, 168, 0.12);
+    color: var(--zeeblauw);
+    border-radius: 100px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+.avond-body {
+    padding: 0 18px 18px;
+    border-top: 1px solid rgba(15, 76, 92, 0.12);
+}
+.avond-uitleg {
+    font-size: 0.92em;
+    color: var(--diepblauw);
+    opacity: 0.85;
+    margin: 14px 0 14px;
+}
+/* Een teller die niet op nul staat, springt eruit — zo zie je in één
+   oogopslag dat er avondgasten zijn ingevuld, ook als het blok dichtklapt. */
+.avond-summary-telling {
+    font-weight: bold;
+    font-size: 0.85em;
+    background: var(--zonnegeel);
+    color: var(--diepblauw);
+    border-radius: 100px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+
+/* Live berekening van de bijdrage */
+.bijdrage-blok {
+    background: var(--duinzand);
+    border-left: 4px solid var(--zonnegeel);
+    border-radius: 0 12px 12px 0;
+    padding: 14px 18px;
+    margin: 0 0 18px;
+}
+.bijdrage-tekst {
+    margin: 0;
+    font-size: 1.05em;
+}
+.bijdrage-tekst strong {
+    font-size: 1.15em;
+    color: var(--diepblauw);
+    white-space: nowrap;
+}
+.bijdrage-uitleg {
+    margin: 4px 0 0;
+    font-size: 0.88em;
+    opacity: 0.8;
+}
+
+/* ===========================================================================
+   Bestelpagina (/eten)
+   =========================================================================== */
+
+.eten-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 20px 0 0;
+}
+.eten-header img { height: 40px; }
+.terug-link {
+    display: inline-block;
+    font-size: 0.92em;
+    margin-bottom: 8px;
+}
+
+/* Stap 1: huisnummer */
+.huis-zoek {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+#huis-form { margin-bottom: 28px; }
+#bestel-kop { margin-top: 8px; }
+.huis-zoek .form-field {
+    margin-bottom: 0;
+    flex: 1 1 140px;
+    min-width: 120px;
+}
+.huis-zoek .btn { flex-shrink: 0; }
+
+/* Uitleg waarom er (nog) niet besteld kan worden */
+.bestel-melding {
+    background: var(--duinzand);
+    border-left: 4px solid var(--zeeblauw);
+    border-radius: 0 12px 12px 0;
+    padding: 16px 20px;
+    margin: 20px 0;
+}
+.bestel-melding.waarschuwing { border-left-color: var(--koraal); }
+.bestel-melding.gesloten { border-left-color: var(--zonnegeel); }
+.bestel-melding p:last-child { margin-bottom: 0; }
+.bestel-melding .huisnr {
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Snackregels — één per actieve snack, opgebouwd uit de database */
+.snack-lijst {
+    background: var(--duinzand);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 0 0 18px;
+}
+.snack-rij {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(15, 76, 92, 0.1);
+}
+.snack-rij:last-child { border-bottom: none; }
+.snack-info { flex: 1; min-width: 0; }
+.snack-naam {
+    display: block;
+    font-weight: bold;
+    color: var(--diepblauw);
+}
+.snack-prijs {
+    display: block;
+    font-size: 0.88em;
+    opacity: 0.8;
+}
+.snack-omschrijving {
+    display: block;
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+/* Regeltotaal naast de teller, alleen zichtbaar als er iets besteld is */
+.snack-regeltotaal {
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--zeeblauw);
+    min-width: 4.5em;
+    text-align: right;
+    flex-shrink: 0;
+}
+@media (max-width: 400px) {
+    .snack-regeltotaal { display: none; }
+}
+
+/* Live totaal onder het bestelformulier */
+.bestel-totaal {
+    background: var(--zeeblauw);
+    color: var(--wit);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 0 0 18px;
+}
+.bestel-totaal h3 {
+    color: var(--wit);
+    font-size: 17px;
+    margin: 0 0 8px;
+}
+.bestel-totaal-regels {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px;
+    font-size: 0.95em;
+}
+.bestel-totaal-regels li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 3px;
+}
+.bestel-totaal-som {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.35);
+    padding-top: 8px;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+.bestel-totaal-leeg {
+    margin: 0;
+    font-size: 0.95em;
+    opacity: 0.9;
+}
+
+/* Bevestiging na verzenden */
+.bestel-bevestiging {
+    background: var(--duinzand);
+    border-left: 4px solid var(--zeeblauw);
+    border-radius: 0 12px 12px 0;
+    padding: 20px 24px;
+    margin: 20px 0;
+}
+.bestel-bevestiging h3 { margin-top: 0; }
+.bestel-bevestiging ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+}
+.bestel-bevestiging li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid rgba(15, 76, 92, 0.12);
+    padding: 5px 0;
+}
+.bestel-bevestiging li:last-child { border-bottom: none; }
+.bestel-bevestiging .som {
+    font-weight: bold;
+    border-top: 2px solid rgba(15, 76, 92, 0.25);
+    border-bottom: none;
+    padding-top: 8px;
+}
+
+/* Tekstveld voor allergieën / extra's */
+.form-field textarea {
+    font-family: inherit;
+    font-size: 1em;
+    padding: 12px 14px;
+    border: 2px solid rgba(15, 76, 92, 0.2);
+    border-radius: 8px;
+    background: var(--wit);
+    color: var(--diepblauw);
+    width: 100%;
+    min-height: 72px;
+    resize: vertical;
+    transition: border-color 0.15s ease;
+}
+.form-field textarea:focus {
+    outline: none;
+    border-color: var(--zeeblauw);
+    box-shadow: 0 0 0 3px rgba(26, 145, 168, 0.2);
+}
+.form-field textarea:focus-visible {
+    outline: 3px solid var(--zonnegeel);
+    outline-offset: 2px;
+}
+
+/* Link naar het bestelformulier vanuit de aanmeldbevestiging */
+.feedback-eten {
+    margin-top: 12px;
 }

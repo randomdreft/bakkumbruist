@@ -8,10 +8,11 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="styles.css">
     <style>
-        .admin-wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px 64px; }
+        .admin-wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
         .admin-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
         .admin-head img { height: 44px; }
         h2.sec { font-size: 20px; margin: 34px 0 14px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        h3.subsec { font-size: 16px; margin: 22px 0 8px; }
 
         /* --- Todo-tracker: 4 statussen die altijd optellen tot het totaal --- */
         .tracker {
@@ -55,6 +56,7 @@
         }
         .totaal-kaart { background: var(--duinzand); border-radius: 12px; padding: 12px 14px; }
         .totaal-kaart.accent { background: var(--zeeblauw); color: var(--wit); }
+        .totaal-kaart.geld { background: var(--diepblauw); color: var(--wit); }
         .totaal-kaart .getal { font-size: 1.7em; font-weight: bold; display: block; line-height: 1.1; }
         .totaal-kaart .label { font-size: 0.82em; opacity: 0.88; }
 
@@ -64,15 +66,54 @@
         /* tabel */
         table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
         th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid rgba(15,76,92,0.15); }
-        th { background: var(--duinzand); position: sticky; top: 0; }
+        th { background: var(--duinzand); position: sticky; top: 0; white-space: nowrap; }
         td.num, th.num { text-align: right; }
+        td.geld, th.geld { text-align: right; white-space: nowrap; }
         tr.komt-nee td { opacity: 0.55; }
         tr.komt-misschien td { opacity: 0.8; }
+        tr.ongeldig td { background: rgba(255,107,107,0.08); }
         .tabel-scroll { overflow-x: auto; border: 1px solid rgba(15,76,92,0.15); border-radius: 10px; }
+        .kolomgroep { border-left: 2px solid rgba(15,76,92,0.25); }
         .pill { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 0.85em; font-weight: bold; }
         .pill.ja { background: rgba(45,122,45,0.15); color: #2d7a2d; }
         .pill.misschien { background: rgba(255,201,60,0.25); color: #8a6a12; }
         .pill.nee { background: rgba(255,107,107,0.18); color: var(--koraal); }
+        .nul { opacity: 0.3; }
+
+        /* --- Bestellijst voor De Toren: bewust kaal en kopieerbaar --- */
+        .toren-blok {
+            background: var(--duinzand);
+            border: 2px solid var(--zeeblauw);
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin: 12px 0 8px;
+        }
+        .toren-kop { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+        .toren-kop h3 { margin: 0; font-size: 18px; }
+        .toren-lijst { list-style: none; padding: 0; margin: 0; font-size: 1.15em; }
+        .toren-lijst li {
+            display: flex; justify-content: space-between; gap: 16px;
+            padding: 7px 0; border-bottom: 1px solid rgba(15,76,92,0.15);
+        }
+        .toren-lijst li:last-child { border-bottom: none; }
+        .toren-lijst .aantal { font-weight: bold; font-variant-numeric: tabular-nums; }
+        .toren-som {
+            display: flex; justify-content: space-between; gap: 16px;
+            border-top: 2px solid var(--zeeblauw); margin-top: 8px; padding-top: 10px;
+            font-weight: bold; font-size: 1.15em;
+        }
+        .toren-leeg { font-style: italic; opacity: 0.75; margin: 0; }
+        .kopieer-melding { font-size: 0.85em; color: #2d7a2d; font-weight: bold; }
+
+        /* Bedragen: bijdrage en eten nooit stilzwijgend optellen */
+        .bedrag-uitleg {
+            background: var(--duinzand);
+            border-left: 4px solid var(--zonnegeel);
+            border-radius: 0 10px 10px 0;
+            padding: 12px 16px;
+            font-size: 0.9em;
+            margin: 8px 0 16px;
+        }
 
         /* onbekend / nog te benaderen — actielijst */
         .onbekend-grid { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -81,6 +122,11 @@
             background: var(--duinzand); border-radius: 10px; padding: 6px 8px 6px 12px;
         }
         .onbekend-kaart .nr { font-family: monospace; font-weight: bold; font-size: 1.05em; min-width: 1.6em; text-align: center; }
+        .nummer-rij { display: flex; flex-wrap: wrap; gap: 6px; }
+        .nummer-pil {
+            background: var(--duinzand); border-radius: 8px; padding: 4px 10px;
+            font-family: monospace; font-weight: bold;
+        }
         .knop-afmeld {
             border: none; cursor: pointer; font-family: inherit;
             background: rgba(255,107,107,0.15); color: #b23b3b;
@@ -145,41 +191,70 @@
                 <div class="voortgang-tekst" id="voortgang-tekst"></div>
             </div>
 
-            <!-- PERSONEN -->
+            <!-- PERSONEN + BIJDRAGE -->
             <h2 class="sec">Wie komen er <span class="muted small" id="personen-sub"></span></h2>
             <div class="personen-totalen" id="personen"></div>
+            <h3 class="subsec">Overdag <span class="muted small" id="dag-tarief"></span></h3>
+            <div class="personen-totalen" id="personen-dag"></div>
+            <h3 class="subsec">Alleen 's avonds <span class="muted small" id="avond-tarief"></span></h3>
+            <div class="personen-totalen" id="personen-avond"></div>
 
             <div class="admin-acties">
-                <a class="btn btn-secondary btn-mini" href="/api/aanmeldingen.csv">Download als CSV</a>
+                <a class="btn btn-secondary btn-mini" href="/api/organisatie/aanmeldingen.csv">Aanmeldingen als CSV</a>
+                <a class="btn btn-secondary btn-mini" href="/api/organisatie/bestellingen.csv">Bestellingen als CSV</a>
                 <button class="btn btn-secondary btn-mini" type="button" id="ververs">Verversen</button>
             </div>
 
-            <!-- TODO: nog te benaderen -->
+            <!-- BESTELLIJST VOOR DE TOREN -->
+            <h2 class="sec">Bestellijst voor De Toren</h2>
+            <p class="muted small" style="margin-top:-6px;">Dit is wat er letterlijk doorgebeld wordt. Verder niets.</p>
+            <div class="toren-blok">
+                <div class="toren-kop">
+                    <h3>Eikenhorst, Bakkum Bruist</h3>
+                    <button class="btn btn-secondary btn-mini" type="button" id="kopieer">Kopieer lijst</button>
+                    <span class="kopieer-melding" id="kopieer-melding" hidden>Gekopieerd</span>
+                </div>
+                <ul class="toren-lijst" id="toren-lijst"></ul>
+                <div class="toren-som" id="toren-som" hidden>
+                    <span id="toren-stuks"></span>
+                    <span id="toren-bedrag"></span>
+                </div>
+                <p class="toren-leeg" id="toren-leeg" hidden>Er is nog niets besteld.</p>
+            </div>
+            <div id="toren-letop"></div>
+
+            <!-- BESTELLINGEN PER HUIS -->
+            <h2 class="sec">Bestellingen per huis <span class="muted small" id="bestellingen-aantal"></span></h2>
+            <p class="muted small" style="margin-top:-6px;">De basis voor de tikkies van het eten.</p>
+            <div class="tabel-scroll">
+                <table>
+                    <thead><tr id="bestel-kop"></tr></thead>
+                    <tbody id="bestel-rijen"></tbody>
+                </table>
+            </div>
+
+            <!-- ALLE REACTIES -->
+            <h2 class="sec">Alle reacties</h2>
+            <div class="bedrag-uitleg">
+                <strong>Let op: twee gescheiden potjes.</strong> De <em>bijdrage</em> is voor het feest zelf
+                (dag- en avondtarief). Het <em>eten</em> is de bestelling bij De Toren, die één op één wordt
+                doorbetaald. Het totaal staat er alleen bij als handvat — noem in een tikkie altijd beide bedragen apart.
+            </div>
+            <div class="tabel-scroll">
+                <table>
+                    <thead><tr id="reacties-kop"></tr></thead>
+                    <tbody id="rijen"></tbody>
+                </table>
+            </div>
+
+            <!-- WIE ONTBREEKT -->
             <h2 class="sec">Nog te benaderen <span class="muted small" id="onbekend-aantal"></span></h2>
             <p class="muted small" style="margin-top:-6px;">Hebben nog niets laten horen. Hoorde je persoonlijk van een adres? Markeer het als <strong>afgemeld</strong> (komen niet) of <strong>misschien</strong>.</p>
             <div class="onbekend-grid" id="onbekend-grid"></div>
 
-            <!-- DETAIL: alle reacties -->
-            <h2 class="sec">Alle reacties</h2>
-            <div class="tabel-scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="num">Huis</th>
-                            <th>Komt</th>
-                            <th class="num">t/m 8</th>
-                            <th class="num">9–13</th>
-                            <th class="num">14–18</th>
-                            <th class="num">Volw.</th>
-                            <th class="num">Totaal</th>
-                            <th>Naam</th>
-                            <th>Contact</th>
-                            <th>Tijdstip</th>
-                        </tr>
-                    </thead>
-                    <tbody id="rijen"></tbody>
-                </table>
-            </div>
+            <h2 class="sec">Komen overdag, maar bestelden nog niets <span class="muted small" id="zonder-aantal"></span></h2>
+            <p class="muted small" style="margin-top:-6px;">Misschien willen ze gewoon niets — maar het is handig om te zien.</p>
+            <div class="nummer-rij" id="zonder-bestelling"></div>
         </div>
     </div>
 
@@ -190,11 +265,15 @@
             var fout = document.getElementById('fout');
             var inhoud = document.getElementById('inhoud');
             var bezig = false;
+            var laatste = null;
 
             function esc(s) {
                 return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
                     return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
                 });
+            }
+            function euro(cent) {
+                return '€ ' + ((cent || 0) / 100).toFixed(2).replace('.', ',');
             }
             function tijd(iso) {
                 var d = new Date(iso);
@@ -202,22 +281,27 @@
                 function p(n) { return (n < 10 ? '0' : '') + n; }
                 return p(d.getDate()) + '-' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
             }
+            function getal(n) {
+                return n ? String(n) : '<span class="nul">0</span>';
+            }
 
-            function statKaart(getal, label, sub, klasse) {
+            function statKaart(g, label, sub, klasse) {
                 return '<div class="stat-kaart ' + klasse + '">' +
-                    '<span class="getal">' + getal + '</span>' +
+                    '<span class="getal">' + g + '</span>' +
                     '<div><span class="label">' + label + '</span>' +
                     '<span class="sub">' + (sub || '') + '</span></div></div>';
             }
-            function persKaart(getal, label, accent) {
-                return '<div class="totaal-kaart' + (accent ? ' accent' : '') + '">' +
-                    '<span class="getal">' + getal + '</span>' +
+            function persKaart(g, label, klasse) {
+                return '<div class="totaal-kaart' + (klasse ? ' ' + klasse : '') + '">' +
+                    '<span class="getal">' + g + '</span>' +
                     '<span class="label">' + label + '</span></div>';
             }
 
             function render(data) {
+                laatste = data;
                 var t = data.totalen;
                 var totaal = data.totaal_adressen;
+                var groepen = data.leeftijdsgroepen;
 
                 // --- tracker ---
                 document.getElementById('tracker').innerHTML =
@@ -226,7 +310,6 @@
                     statKaart(t.afgemeld, 'afgemeld', 'komen niet', 'afgemeld') +
                     statKaart(t.onbekend, 'onbekend', 'nog geen reactie', 'onbekend');
 
-                // gestapelde balk
                 var pAan = totaal ? (t.aangemeld / totaal * 100) : 0;
                 var pMis = totaal ? (t.misschien / totaal * 100) : 0;
                 var pAf = totaal ? (t.afgemeld / totaal * 100) : 0;
@@ -241,15 +324,119 @@
                 document.getElementById('personen-sub').textContent =
                     '(' + t.aangemeld + ' ' + (t.aangemeld === 1 ? 'huis komt' : 'huizen komen') + ')';
                 document.getElementById('personen').innerHTML =
-                    persKaart(t.personen, 'personen totaal', true) +
-                    persKaart(t.tm8, 'kinderen t/m 8') +
-                    persKaart(t.n9_13, 'kinderen 9–13') +
-                    persKaart(t.n14_18, 'jongeren 14–18') +
-                    persKaart(t.volwassenen, 'volwassenen');
+                    persKaart(t.personen, 'personen totaal', 'accent') +
+                    persKaart(t.dag_totaal, 'de hele dag') +
+                    persKaart(t.avond_totaal, "alleen 's avonds") +
+                    persKaart(euro(t.bijdrage_cent), 'bijdrage totaal', 'geld') +
+                    persKaart(euro(t.eten_cent), 'eten totaal', 'geld');
 
-                // --- nog te benaderen (onbekend) ---
-                document.getElementById('onbekend-aantal').textContent =
-                    '(' + data.ontbrekende.length + ')';
+                document.getElementById('dag-tarief').textContent =
+                    '(' + euro(data.tarief_cent.dag) + ' p.p. — ' + t.dag_totaal + ' personen)';
+                document.getElementById('avond-tarief').textContent =
+                    '(' + euro(data.tarief_cent.avond) + ' p.p. — ' + t.avond_totaal + ' personen)';
+                document.getElementById('personen-dag').innerHTML =
+                    groepen.map(function (g) { return persKaart(t.dag[g.code], g.label); }).join('');
+                document.getElementById('personen-avond').innerHTML =
+                    groepen.map(function (g) { return persKaart(t.avond[g.code], g.label); }).join('');
+
+                // --- bestellijst voor De Toren ---
+                var lijst = data.bestellijst;
+                document.getElementById('toren-lijst').innerHTML = lijst.map(function (b) {
+                    return '<li><span class="aantal">' + b.aantal + '× ' + esc(b.naam) + '</span>' +
+                        '<span>' + euro(b.bedrag_cent) + '</span></li>';
+                }).join('');
+                document.getElementById('toren-leeg').hidden = lijst.length > 0;
+                document.getElementById('toren-som').hidden = lijst.length === 0;
+                document.getElementById('toren-stuks').textContent =
+                    data.bestellijst_stuks + (data.bestellijst_stuks === 1 ? ' stuk' : ' stuks');
+                document.getElementById('toren-bedrag').textContent = euro(data.bestellijst_totaal_cent);
+
+                document.getElementById('toren-letop').innerHTML = data.let_op_bestellingen.length
+                    ? '<div class="bedrag-uitleg"><strong>Niet meegeteld:</strong> ' +
+                      data.let_op_bestellingen.map(function (b) {
+                          return 'nr. ' + b.huisnummer + ' (' + euro(b.bedrag_cent) + ')';
+                      }).join(', ') +
+                      ' — deze huizen hebben besteld maar komen volgens hun aanmelding niet meer overdag. ' +
+                      'Even navragen voordat je doorbelt.</div>'
+                    : '';
+
+                // --- bestellingen per huis ---
+                // Kolommen: de actieve snacks, plus wat er ooit besteld is.
+                // Een uitgezette snack die niemand koos hoeft geen lege kolom.
+                var besteld = {};
+                data.bestellingen.forEach(function (b) {
+                    b.regels.forEach(function (r) { besteld[r.snack_id] = true; });
+                });
+                var snacks = data.snacks.filter(function (s) { return s.actief || besteld[s.id]; });
+                document.getElementById('bestellingen-aantal').textContent = '(' + data.bestellingen.length + ')';
+                document.getElementById('bestel-kop').innerHTML =
+                    '<th class="num">Huis</th>' +
+                    snacks.map(function (s) { return '<th class="num">' + esc(s.naam) + '</th>'; }).join('') +
+                    '<th class="num kolomgroep">Stuks</th><th class="geld">Bedrag</th><th>Opmerking</th><th>Bijgewerkt</th>';
+                document.getElementById('bestel-rijen').innerHTML = data.bestellingen.map(function (b) {
+                    var perSnack = {};
+                    b.regels.forEach(function (r) { perSnack[r.snack_id] = r.aantal; });
+                    return '<tr class="' + (b.geldig ? '' : 'ongeldig') + '">' +
+                        '<td class="num">' + b.huisnummer + '</td>' +
+                        snacks.map(function (s) {
+                            return '<td class="num">' + getal(perSnack[s.id] || 0) + '</td>';
+                        }).join('') +
+                        '<td class="num kolomgroep"><strong>' + b.aantal_stuks + '</strong></td>' +
+                        '<td class="geld">' + euro(b.bedrag_cent) + '</td>' +
+                        '<td>' + esc(b.opmerking) + '</td>' +
+                        '<td>' + tijd(b.bijgewerkt_op) + '</td>' +
+                        '</tr>';
+                }).join('') ||
+                    '<tr><td colspan="' + (snacks.length + 5) + '" class="muted" style="padding:20px;">Nog geen bestellingen.</td></tr>';
+
+                // --- alle reacties ---
+                document.getElementById('reacties-kop').innerHTML =
+                    '<th class="num">Huis</th><th>Komt</th>' +
+                    groepen.map(function (g, i) {
+                        return '<th class="num' + (i === 0 ? ' kolomgroep' : '') + '">' + esc(g.kort) + '</th>';
+                    }).join('') +
+                    '<th class="num">dag</th>' +
+                    groepen.map(function (g, i) {
+                        return '<th class="num' + (i === 0 ? ' kolomgroep' : '') + '">' + esc(g.kort) + '</th>';
+                    }).join('') +
+                    '<th class="num">avond</th>' +
+                    '<th class="geld kolomgroep">Bijdrage</th><th class="geld">Eten</th><th class="geld">Totaal</th>' +
+                    '<th class="kolomgroep">Naam</th><th>Contact</th><th>Bijgewerkt</th>';
+
+                document.getElementById('rijen').innerHTML = data.aanmeldingen.map(function (a) {
+                    var ja = a.komt === 'ja';
+                    var rijKlasse = ja ? 'komt-ja' : a.komt === 'misschien' ? 'komt-misschien' : 'komt-nee';
+                    var naamCel, contactCel;
+                    if (a.bron === 'mondeling') {
+                        naamCel = '<em class="muted">' + (a.komt === 'misschien' ? 'als misschien gemarkeerd' : 'mondeling afgemeld') + '</em>';
+                        contactCel = '<button class="knop-undo" type="button" data-undo="' + a.huisnummer + '">ongedaan maken</button>';
+                    } else {
+                        naamCel = esc(a.naam);
+                        contactCel = esc(a.contact);
+                    }
+                    return '<tr class="' + rijKlasse + '">' +
+                        '<td class="num">' + a.huisnummer + '</td>' +
+                        '<td><span class="pill ' + esc(a.komt) + '">' + esc(a.komt) + '</span></td>' +
+                        groepen.map(function (g, i) {
+                            return '<td class="num' + (i === 0 ? ' kolomgroep' : '') + '">' + (ja ? getal(a.dag[g.code]) : '–') + '</td>';
+                        }).join('') +
+                        '<td class="num"><strong>' + (ja ? a.dag_totaal : '–') + '</strong></td>' +
+                        groepen.map(function (g, i) {
+                            return '<td class="num' + (i === 0 ? ' kolomgroep' : '') + '">' + (ja ? getal(a.avond[g.code]) : '–') + '</td>';
+                        }).join('') +
+                        '<td class="num"><strong>' + (ja ? a.avond_totaal : '–') + '</strong></td>' +
+                        '<td class="geld kolomgroep">' + (ja ? euro(a.bijdrage_cent) : '–') + '</td>' +
+                        '<td class="geld">' + (a.eten_cent ? euro(a.eten_cent) : '–') + '</td>' +
+                        '<td class="geld"><strong>' + (ja ? euro(a.totaal_cent) : '–') + '</strong></td>' +
+                        '<td class="kolomgroep">' + naamCel + '</td>' +
+                        '<td>' + contactCel + '</td>' +
+                        '<td>' + tijd(a.bijgewerkt_op) + '</td>' +
+                        '</tr>';
+                }).join('') ||
+                    '<tr><td colspan="20" class="muted" style="padding:20px;">Nog geen reacties.</td></tr>';
+
+                // --- wie ontbreekt ---
+                document.getElementById('onbekend-aantal').textContent = '(' + data.ontbrekende.length + ')';
                 document.getElementById('onbekend-grid').innerHTML =
                     data.ontbrekende.map(function (n) {
                         return '<div class="onbekend-kaart"><span class="nr">' + n + '</span>' +
@@ -258,50 +445,48 @@
                     }).join('') ||
                     '<span class="leeg">Iedereen heeft gereageerd 🎉</span>';
 
-                // --- detailtabel: alle reacties (formulier + mondeling) ---
-                var rows = data.aanmeldingen.map(function (a) {
-                    var komtJa = a.komt === true;
-                    var komtMis = a.komt === 'misschien';
-                    var komtLabel = komtJa ? 'ja' : komtMis ? 'misschien' : 'nee';
-                    var komtKlasse = komtJa ? 'ja' : komtMis ? 'misschien' : 'nee';
-                    var rijKlasse = komtJa ? 'komt-ja' : komtMis ? 'komt-misschien' : 'komt-nee';
-                    var tot = komtJa ? (a.aantal_tm8 + a.aantal_9_13 + a.aantal_14_18 + a.aantal_volwassenen) : '';
-                    // Door de organisatie gemarkeerde adressen (afgemeld of misschien)
-                    // tonen geen naam/contact, maar wel een knop om de markering
-                    // ongedaan te maken.
-                    var naamCel, contactCel;
-                    if (a.bron === 'mondeling') {
-                        naamCel = '<em class="muted">' + (komtMis ? 'als misschien gemarkeerd' : 'mondeling afgemeld') + '</em>';
-                        contactCel = '<button class="knop-undo" type="button" data-undo="' + esc(a.huisnummer) + '">ongedaan maken</button>';
-                    } else {
-                        naamCel = esc(a.naam);
-                        contactCel = esc(a.contact);
-                    }
-                    return '<tr class="' + rijKlasse + '">' +
-                        '<td class="num">' + esc(a.huisnummer) + '</td>' +
-                        '<td><span class="pill ' + komtKlasse + '">' + komtLabel + '</span></td>' +
-                        '<td class="num">' + (komtJa ? a.aantal_tm8 : '–') + '</td>' +
-                        '<td class="num">' + (komtJa ? a.aantal_9_13 : '–') + '</td>' +
-                        '<td class="num">' + (komtJa ? a.aantal_14_18 : '–') + '</td>' +
-                        '<td class="num">' + (komtJa ? a.aantal_volwassenen : '–') + '</td>' +
-                        '<td class="num"><strong>' + tot + '</strong></td>' +
-                        '<td>' + naamCel + '</td>' +
-                        '<td>' + contactCel + '</td>' +
-                        '<td>' + tijd(a.timestamp) + '</td>' +
-                        '</tr>';
-                }).join('');
-                document.getElementById('rijen').innerHTML = rows ||
-                    '<tr><td colspan="10" class="muted" style="padding:20px;">Nog geen reacties.</td></tr>';
+                document.getElementById('zonder-aantal').textContent = '(' + data.zonder_bestelling.length + ')';
+                document.getElementById('zonder-bestelling').innerHTML =
+                    data.zonder_bestelling.map(function (n) {
+                        return '<span class="nummer-pil">' + n + '</span>';
+                    }).join('') ||
+                    '<span class="leeg">Iedereen die overdag komt heeft besteld.</span>';
 
                 laden.hidden = true;
                 inhoud.hidden = false;
             }
 
+            // Bestellijst als platte tekst, om door te bellen of te plakken.
+            function torenTekst() {
+                if (!laatste) return '';
+                var r = ['Bakkum Bruist — Eikenhorst, bestelling:'];
+                laatste.bestellijst.forEach(function (b) {
+                    r.push(b.aantal + 'x ' + b.naam);
+                });
+                r.push('Totaal: ' + laatste.bestellijst_stuks + ' stuks, ' +
+                    '€ ' + (laatste.bestellijst_totaal_cent / 100).toFixed(2).replace('.', ','));
+                return r.join('\n');
+            }
+
+            document.getElementById('kopieer').addEventListener('click', function () {
+                var melding = document.getElementById('kopieer-melding');
+                var tekst = torenTekst();
+                function gelukt() {
+                    melding.hidden = false;
+                    setTimeout(function () { melding.hidden = true; }, 2500);
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(tekst).then(gelukt, function () { window.prompt('Kopieer de lijst:', tekst); });
+                } else {
+                    window.prompt('Kopieer de lijst:', tekst);
+                }
+            });
+
             function laad() {
                 laden.hidden = false;
                 fout.hidden = true;
                 inhoud.hidden = true;
-                fetch('/api/aanmeldingen', { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
+                fetch('/api/organisatie/overzicht', { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
                     .then(function (res) {
                         if (!res.ok) throw new Error('http ' + res.status);
                         return res.json();
@@ -310,12 +495,11 @@
                     .catch(function (e) {
                         laden.hidden = true;
                         fout.hidden = false;
-                        fout.textContent = 'Kon de aanmeldingen niet laden (' + e.message + '). Ververs de pagina.';
+                        fout.textContent = 'Kon de gegevens niet laden (' + e.message + '). Ververs de pagina.';
                     });
             }
 
-            // Markeer of de-markeer een door de organisatie gezet adres
-            // (afgemeld / misschien), daarna herladen.
+            // Markeer of de-markeer een door de organisatie gezet adres.
             function mondeling(methode, body) {
                 if (bezig) return;
                 bezig = true;
@@ -335,7 +519,6 @@
                 });
             }
 
-            // Eén klik-handler voor de hele pagina (event delegation).
             document.body.addEventListener('click', function (ev) {
                 var afmeld = ev.target.closest('[data-afmeld]');
                 if (afmeld) {
