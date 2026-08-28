@@ -24,7 +24,8 @@ Plain HTML/CSS/JS aan de voorkant (geen framework, geen bundler, geen externe fo
 ├── snack.js           beheer van het snack-assortiment (toevoegen / prijs / aan / uit)
 ├── backup-db.js       consistente kopie van de database (VACUUM INTO, WAL-veilig)
 ├── Dockerfile         node:22-alpine, draait server.js op poort 80
-├── package.json       dev-scripts voor lokaal draaien
+├── package.json       dev- en testscripts voor lokaal draaien
+├── test/              regressietests (draaien met `npm test`, zonder dependencies)
 ├── favicon.png
 └── huisstijl/         logo-varianten
 ```
@@ -79,7 +80,14 @@ De bijdrage (feest) en de eetbestelling (De Toren) zijn **gescheiden potjes**. O
 
 > Auth-kolom = HTTP Basic Auth, **tenzij** het client-IP in `AANMELDINGEN_IP_WHITELIST` staat. De oude paden `/api/aanmeldingen(.csv)` blijven werken en vereisen dezelfde auth.
 
-**Privacy.** Er is geen login voor bewoners; identificatie op huisnummer is genoeg voor een straatfeest. `/api/bestelstatus` geeft daarom bewust alleen terug of dit huis mag bestellen, waarom niet, en de eigen bestelregels — **nooit** namen, contactgegevens of aantallen van een ander huis.
+**Privacy.** Er is geen login voor bewoners; identificatie op huisnummer is genoeg voor een straatfeest. `/api/bestelstatus` geeft daarom bewust alleen terug wat dit huis over zichzelf mag weten — **nooit** namen of contactgegevens, van welk huis dan ook:
+
+| Veld | Wat |
+|------|-----|
+| `mag`, `readonly`, `reden`, `bericht` | mag dit huis bestellen, en zo niet: waarom, in gewone taal |
+| `bestelling` | de eigen regels, opmerking en het totaal (`null` als er nog niets is) |
+| `dag_personen` | het eigen aantal dagdeelnemers — alleen als het huis mag bestellen, als geheugensteun bij *"voor hoeveel personen friet?"* |
+| `deadline_tekst`, `deadline_verstreken`, `contact_email` | dezelfde publieke waarden als `/api/instellingen` |
 
 ## Toegangsregels voor het bestellen
 
@@ -92,7 +100,14 @@ Allemaal server-side afgedwongen, in deze volgorde:
 5. Wel aangemeld maar **nul dagdeelnemers** → geen formulier; het eten wordt om half zes uitgedeeld en het avondprogramma begint pas om half acht
 6. Deadline verstreken → readonly, met de al geplaatste bestelling zichtbaar
 
-Verder valideert de server: aantallen als gehele getallen 0–20, snack-id's alleen tegen **actieve** snacks, en de prijs komt altijd uit de database (nooit uit wat de client meestuurt). Simpele rate-limiting per IP (30 schrijfacties per 10 minuten).
+Verder valideert de server:
+
+- aantallen als gehele getallen 0–20 (daarbuiten wordt bijgeknipt, niet geweigerd);
+- snack-id's alleen tegen **actieve** snacks — een onbekend of uitgezet id valt stil weg;
+- de prijs komt altijd uit de database, nooit uit wat de client meestuurt;
+- **een bestelling moet minstens één snack bevatten.** Alleen een opmerking invullen is niet genoeg: dat leverde vroeger een bestelling van € 0,00 op die wél in de lijst voor De Toren belandde. Zowel de server (HTTP 400 `lege_bestelling`) als het formulier weigeren dat nu, en `test/lege-bestelling.test.js` bewaakt allebei.
+
+Simpele rate-limiting per IP, in vensters van 10 minuten: 30 aanmeldingen, 30 bestellingen, 120 keer bestelstatus opvragen. Daarboven volgt HTTP 429.
 
 De statische server weigert bovendien bestandsnamen die op een kopietje wijzen (`.bak`, `.pre-`, `.orig`, `.old`, `~`, dotfiles). Zo'n kopie van `aanmeldingen.html` zou anders gewoon geserveerd worden: de auth-check matcht op het exacte pad. Vangnet in de code is betrouwbaarder dan onthouden dat je opruimt — **bewaar backups sowieso buiten `/var/www/bakkumbruist/`**, bijvoorbeeld in `~/bakkumbruist-backups/`.
 
@@ -198,6 +213,54 @@ cd /opt/static-sites && sudo docker compose up -d bakkumbruist   # geen --build 
 
 De server leest het echte client-IP uit de `X-Real-IP`-header die NPM zet (gelijk aan `$remote_addr`, dus niet door de bezoeker te spoofen).
 
+## Runbook: wat doe je wanneer
+
+Voor de organisatie, in volgorde van de kalender. Alles begint op
+`bakkumbruist.nl/aanmeldingen`.
+
+**Doorlopend, tot de besteldeadline**
+
+- Kijk bij *Nog te benaderen* wie nog niets liet horen. Hoorde je iemand
+  persoonlijk? Markeer het adres met één klik als *afgemeld* of *misschien* —
+  dat schuift het uit de todo-lijst zonder dat je iets verzint over aantallen.
+  Meldt datzelfde huis zich later alsnog via het formulier, dan wint dat: een
+  formulier-inzending overschrijft je markering.
+- Onder *Komen overdag, maar bestelden nog niets* staat wie je eventueel nog
+  een duwtje geeft over het eten.
+
+**Op de besteldeadline (`BESTEL_DEADLINE`)**
+
+1. Open `/aanmeldingen` en klik **Kopieer lijst** in het blok *Bestellijst voor
+   De Toren*. Dat is precies wat je doorbelt, meer niet.
+2. Kijk of er onder dat blok een regel *"Niet meegeteld"* staat. Dan heeft een
+   huis besteld en daarna zijn aanmelding gewijzigd naar "komt niet" of "alleen
+   avond". Even bellen voordat je doorgeeft — die bestelling zit **niet** in de
+   lijst.
+3. Bel De Toren. Vanaf dat moment is het formulier voor iedereen readonly; de
+   server sluit dat zelf af, daar hoef je niets voor te doen.
+
+**Voor de tikkies**
+
+Twee losse bedragen, nooit optellen tot één zonder beide te noemen:
+
+- de **bijdrage** aan het feest (€ 17,50 per dagdeelnemer, € 7,50 per
+  avondgast) — kolom *Bijdrage* in *Alle reacties*;
+- het **eten**, dat één op één naar De Toren gaat — kolom *Eten*.
+
+De kolom *Totaal* staat er alleen als handvat. Download desnoods beide CSV's
+voor de administratie.
+
+**Als iemand belt dat er iets niet klopt**
+
+- *"Ik wil mijn aanmelding wijzigen"* → laat ze het formulier gewoon opnieuw
+  invullen met hetzelfde huisnummer. Dat overschrijft de vorige opgave en laat
+  hun eetbestelling staan.
+- *"Ik kan niet bestellen"* → de pagina zegt zelf waarom. Meestal: nog niet
+  aangemeld, of alleen 's avonds opgegeven.
+- *"Ik heb per ongeluk verkeerd besteld"* → opnieuw insturen vervangt de hele
+  bestelling. Na de deadline kan dat niet meer; dan pas je het met de hand aan
+  in de database, of je regelt het rechtstreeks met De Toren.
+
 ## Instellingen (omgeving)
 
 Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijzigen = `.env` editen + `docker compose up -d bakkumbruist` (géén `--build`).
@@ -226,24 +289,82 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 
 ```bash
 cd /var/www/bakkumbruist && npm run dev    # http://localhost:8000, data in ./.data
-npm test                                   # regressietest lege eetbestelling
+npm test                                   # regressietests
 ```
 
 (De server leest `PORT`, `STATIC_DIR` en `DATA_DIR` uit de omgeving; in de container zijn dat 80, `/static` en `/data`.)
+
+`npm test` start de server op een eigen poort met een eigen database in een
+tijdelijke map en praat er via HTTP mee — het raakt de live data niet aan en
+heeft geen dependencies of netwerk nodig. Wat er nu bewaakt wordt:
+
+| Test | Bewaakt |
+|------|---------|
+| `test/lege-bestelling.test.js` | een bestelling zonder snacks wordt geweigerd, server- én client-side |
+
+Draai hem na elke wijziging aan `server.js` of `eten.js`, en vóór het pushen.
 
 ## Deploy-workflow
 
 ```bash
 # 1. Edit live in /var/www/bakkumbruist/
-# 2. Bij wijziging van server.js / db.js / Dockerfile: container herbouwen
+#    HTML wijzigen werkt direct — /static is een live read-only mount.
+# 2. CSS of frontend-JS gewijzigd? Bump de ?v= (zie hieronder), anders blijft
+#    het bij bezoekers met een gecachte kopie hangen.
+# 3. Bij wijziging van server.js / db.js / Dockerfile: container herbouwen
 cd /opt/static-sites && sudo docker compose up -d --build bakkumbruist
-#    (puur HTML/CSS/JS wijzigen werkt direct — /static is een live read-only mount)
-# 3. Kopieer naar de repo en push (alles in het Nederlands)
+# 4. Testen
+cd /var/www/bakkumbruist && npm test
+# 5. Kopieer naar de repo en push (alles in het Nederlands)
 cp -r /var/www/bakkumbruist/* /home/randal/bakkumbruist-repo/
 cd /home/randal/bakkumbruist-repo && git add <bestanden> && git commit && git push
 ```
 
 De daily update-cron (`trogdor-pull-updates.sh`) bouwt deze container automatisch mee.
+
+### Cache-busting: bump de `?v=` bij CSS- en JS-wijzigingen
+
+De pagina's linken naar `styles.css?v=…` en `script.js?v=…`. De server zet op
+alles behalve HTML een `Cache-Control: public, max-age=3600`, dus zonder een
+nieuwe `?v=` ziet een bezoeker die de site al eens opende tot een uur lang de
+oude stylesheet — met een half kapotte pagina als de HTML wél veranderde.
+HTML zelf staat op `no-cache` en ververst altijd.
+
+**`styles.css` staat in drie bestanden**, dus alle drie bumpen. Even nalopen wat
+er nu staat:
+
+```bash
+cd /var/www/bakkumbruist
+grep -n -E 'styles\.css\?v=|script\.js\?v=|eten\.js\?v=' index.html eten.html aanmeldingen.html
+```
+
+Alle drie tegelijk bijwerken naar de datum van vandaag (plakletter erachter als
+je op één dag meerdere keren wijzigt — `20260828`, `20260828b`, …):
+
+```bash
+sudo sed -i 's/styles\.css?v=[0-9a-z]*/styles.css?v=20260828/' index.html eten.html aanmeldingen.html
+```
+
+De versies van `script.js` en `eten.js` staan los van die van de CSS en hoeven
+alleen mee als dat bestand zelf verandert. De waarde zelf is betekenisloos —
+het moet alleen iets *anders* zijn dan de vorige keer.
+
+### Wat er publiek geserveerd wordt
+
+`/var/www/bakkumbruist` is tegelijk de build-context én de webroot. Alles wat
+er ligt is dus opvraagbaar: `bakkumbruist.nl/server.js`, `/db.js`,
+`/package.json`, `/README.md` — allemaal HTTP 200. Dat is geen lek: de repo is
+publiek op GitHub en de code bevat geen geheimen (wachtwoord, IP-whitelist en
+deadline komen uit `.env`, die niet in deze map staat). Maar het betekent wél:
+
+- **zet nooit een bestand met geheimen in deze map** — ook niet tijdelijk;
+- bewaar backups en kopietjes buiten de map, in `~/bakkumbruist-backups/`. De
+  server weigert namen als `.bak` en `.pre-` (zie boven), maar reken daar niet
+  op als enige verdediging.
+
+Wil je de servercode helemaal niet meer serveren, dan is dat één regel extra in
+`VERBODEN_BESTAND` in `serveStatic()`. Bewust nog niet gedaan: het levert geen
+beveiliging op zolang dezelfde bestanden publiek op GitHub staan.
 
 ## Status
 
