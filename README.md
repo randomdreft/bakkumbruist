@@ -84,14 +84,15 @@ De bijdrage (feest) en de eetbestelling (De Toren) zijn **gescheiden potjes**. O
 
 > Auth-kolom = HTTP Basic Auth, **tenzij** het client-IP in `AANMELDINGEN_IP_WHITELIST` staat. De oude paden `/api/aanmeldingen(.csv)` blijven werken en vereisen dezelfde auth.
 
-**Privacy.** Er is geen login voor bewoners; identificatie op huisnummer is genoeg voor een straatfeest. `/api/bestelstatus` geeft daarom bewust alleen terug wat dit huis over zichzelf mag weten — **nooit** namen of contactgegevens, van welk huis dan ook:
+**Privacy.** Er is geen login voor bewoners; identificatie op huisnummer is genoeg voor een straatfeest. Dat betekent wel dat **iedereen elk huisnummer kan invullen**, dus `/api/bestelstatus` geeft bewust alleen terug wat een willekeurige voorbijganger over dat adres mag weten — **nooit** namen, contactgegevens of aantallen:
 
 | Veld | Wat |
 |------|-----|
 | `mag`, `readonly`, `reden`, `bericht` | mag dit huis bestellen, en zo niet: waarom, in gewone taal |
 | `bestelling` | de eigen regels en het totaal (`null` als er nog niets is) |
-| `dag_personen` | het eigen aantal dagdeelnemers — alleen als het huis mag bestellen, als geheugensteun bij *"voor hoeveel personen friet?"* |
 | `deadline_tekst`, `deadline_verstreken`, `contact_email` | dezelfde publieke waarden als `/api/instellingen` |
+
+> Het formulier toonde bij de friet ooit *"Jullie komen met 4 overdag"* als geheugensteun, gevoed door een veld `dag_personen` in deze respons. Dat is er op 28-08-2026 uit gehaald: zonder login kon je met een willekeurig huisnummer aflezen met hoeveel mensen dat huis komt. De regels hierboven zijn de hele respons — voeg er niets aan toe wat je niet aan een vreemde zou vertellen.
 
 ## Toegangsregels voor het bestellen
 
@@ -338,6 +339,7 @@ heeft geen dependencies of netwerk nodig. Wat er nu bewaakt wordt:
 |------|---------|
 | `test/lege-bestelling.test.js` | een bestelling zonder snacks wordt geweigerd, server- én client-side, en wist een bestaande bestelling niet |
 | `test/assortiment.test.js` | geen opmerkingveld meer in `eten.html`/`eten.js`, de server neemt er geen aan, de burgers dragen hun eigen "geen maatwerk"-regel, en de kipnuggets zeggen in naam én eenheid dat het per bakje van zes gaat |
+| `test/privacy.test.js` | `/api/bestelstatus` geeft geen naam, contactgegevens of aantallen terug — voor een huis dat wél en een huis dat niet mag bestellen — en `eten.js` vraagt ze niet meer op |
 
 (`test/helpers.js` bevat de gedeelde opstart: server op een vrije poort, verse database in een tijdelijke map.)
 

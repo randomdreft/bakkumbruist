@@ -23,7 +23,6 @@
 
     var snacks = [];        // uit /api/snacks — de enige bron van het assortiment
     var huidigHuis = null;
-    var dagPersonen = 0;    // eigen dagdeelnemers, als hint bij "voor hoeveel personen?"
 
     function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -119,11 +118,9 @@
             var id = 'snack-' + s.id;
             var w = woorden(s);
             var perPersoon = s.eenheid === 'persoon';
-            // Bij een portie per persoon vragen we het ook zo, en zetten we
-            // het aantal dagdeelnemers erbij als geheugensteun.
-            var hint = perPersoon
-                ? w.vraag + (dagPersonen ? ' Jullie komen met ' + dagPersonen + ' overdag.' : '')
-                : '';
+            // Bij een portie per persoon vragen we het ook zo. Geen aantallen
+            // uit de aanmelding erbij: iedereen kan elk huisnummer invullen.
+            var hint = perPersoon ? w.vraag : '';
             return '<div class="snack-rij">' +
                 '<div class="snack-info">' +
                     '<label class="snack-naam" for="' + id + '">' + esc(s.naam) + '</label>' +
@@ -264,7 +261,6 @@
         }
 
         // Mag bestellen: formulier opbouwen en eventueel voorvullen.
-        dagPersonen = data.dag_personen || 0;
         bouwSnackLijst();
         document.getElementById('bestel-kop').textContent = data.bestelling
             ? 'Jullie bestelling voor Eikenhorst ' + huisnummer

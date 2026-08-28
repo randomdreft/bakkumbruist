@@ -61,8 +61,8 @@ const SNACK_SEED = [
   // De burgers komen kant-en-klaar van De Toren. Dat staat in de
   // omschrijving en niet in de paginatekst, zodat het meeverhuist naar het
   // formulier, de bevestiging en elk overzicht dat de snacktabel uitleest.
-  { slug: 'hamburger', naam: 'Hamburger', omschrijving: 'Zoals De Toren hem maakt — aanpassen of weglaten kan niet.', prijs_cent: 675, eenheid: 'stuk', volgorde: 40 },
-  { slug: 'vegaburger', naam: 'Vegaburger', omschrijving: 'Zoals De Toren hem maakt — aanpassen of weglaten kan niet.', prijs_cent: 825, eenheid: 'stuk', volgorde: 50 },
+  { slug: 'hamburger', naam: 'Hamburger', omschrijving: 'Zoals De Toren hem maakt (geen maatwerk)', prijs_cent: 675, eenheid: 'stuk', volgorde: 40 },
+  { slug: 'vegaburger', naam: 'Vegaburger', omschrijving: 'Zoals De Toren hem maakt (geen maatwerk)', prijs_cent: 825, eenheid: 'stuk', volgorde: 50 },
 ];
 
 // Eenheden waarin besteld wordt. Snacks tel je per stuk, friet per persoon

@@ -494,10 +494,13 @@ function bestelStatusVan(huisnummer) {
     });
   }
 
-  // Het eigen dagaantal meesturen: handig als hint bij "voor hoeveel personen
-  // friet?". Alleen van dit huis, dus geen gegevens van iemand anders.
+  // Bewust GEEN aantal dagdeelnemers meesturen. Dat stond hier ooit als hint
+  // bij "voor hoeveel personen friet?", maar er zit geen login op het
+  // bestellen: wie een willekeurig huisnummer invult, leest zo af met hoeveel
+  // mensen dat huis komt. Deze respons vertelt alleen of dít huis mag
+  // bestellen en wat het zelf besteld heeft.
   return Object.assign(basis, {
-    mag: true, reden: 'ok', bestelling: huidig, dag_personen: somVan(deel.dag),
+    mag: true, reden: 'ok', bestelling: huidig,
   });
 }
 
