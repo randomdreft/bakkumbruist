@@ -39,7 +39,7 @@ SQLite op `/data/bakkumbruist.db` (Docker-volume `static-sites_bakkumbruist-data
 | `aanmelding` | één rij per huisnummer: `huisnummer` (UNIQUE), `komt`, `bron`, `naam`, `contact`, `opmerking`, `aangemaakt_op`, `bijgewerkt_op` |
 | `deelnemer` | de aantallen: `aanmelding_id` (FK, CASCADE), `leeftijdsgroep` (`tm8`/`9_13`/`14_18`/`volwassen`), `deelname` (`dag`/`avond`), `aantal`. UNIQUE op (aanmelding, groep, deelname) |
 | `snack` | het assortiment: `slug` (UNIQUE), `naam`, `omschrijving`, `prijs_cent`, `eenheid` (`stuk`/`persoon`), `actief`, `volgorde` |
-| `bestelling` | één rij per huis: `aanmelding_id` (FK, UNIQUE), `opmerking`, tijdstempels |
+| `bestelling` | één rij per huis: `aanmelding_id` (FK, UNIQUE), `opmerking` (historisch, zie hieronder), tijdstempels |
 | `bestelregel` | `bestelling_id` (FK, CASCADE), `snack_id` (FK), `aantal`, `prijs_cent_bij_bestelling`. UNIQUE op (bestelling, snack) |
 | `meta` | sleutel/waarde, o.a. de markering dat de JSON-migratie gedaan is |
 
@@ -47,7 +47,11 @@ Drie keuzes die uitleg verdienen:
 
 - **`deelnemer` is een aparte tabel, geen acht kolommen in `aanmelding`.** Een leeftijdsgroep of een tariefsoort erbij is dan een rij, geen schemawijziging.
 - **`prijs_cent_bij_bestelling` is opzettelijk gedenormaliseerd.** Wijzigt De Toren de prijs nadat mensen besteld hebben, dan blijven de al verstuurde bevestigingen kloppen. Nieuwe bestellingen pakken vanzelf de nieuwe prijs.
-- **`eenheid` staat in de data, niet in de teksten.** Snacks tel je per stuk, friet per persoon (één portie per persoon). Bij `persoon` vraagt het formulier *"Voor hoeveel personen?"* in plaats van *"Hoeveel?"*, en leest alles wat eruit komt als *"4 personen friet"* in plaats van *"4× Friet"* — ook de lijst die naar De Toren gaat. Een volgende snack die per persoon gaat, is dus één vlaggetje en geen tekstwijziging.
+- **`eenheid` staat in de data, niet in de teksten.** Er zijn er drie: `stuk` (losse snacks), `persoon` (friet — één portie per persoon) en `bakje` (een verpakking met meerdere stuks, zoals de kipnuggets per zes). De eenheid bepaalt de prijsregel (*"per stuk"* / *"per persoon"* / *"per bakje"*), de vraagstelling op het formulier, de kolomkop op het dashboard, het achtervoegsel in de CSV (`_stuks`, `_personen`, `_bakjes`) en hoe een regel gelezen wordt: alleen losse stuks krijgen een ×, al het andere noemt zijn eenheid — *"4 personen friet"*, *"2 bakjes kipnuggets (6 stuks)"*, *"3× Kroket"*. Ook in de lijst die naar De Toren gaat. Een volgende snack in zo'n eenheid is dus één vlaggetje en geen tekstwijziging.
+
+- **Hoeveel er in een bakje zit, hoort in de `naam`.** De eenheid zegt *dat* het per bakje gaat, niet *hoeveel* erin zit. Alleen `naam` bereikt óók de kolomkoppen, de CSV en de lijst die je doorbelt — vandaar `Kipnuggets (6 stuks)` en niet `Kipnuggets` met het aantal ergens anders.
+
+- **`omschrijving` is het regeltje onder de naam op het formulier.** Daar hoort in wat er over dít product te weten valt: dat een bakje zes nuggets is, of dat een burger niet aan te passen is. Zo verhuist die informatie mee als het assortiment verandert, in plaats van in de paginatekst achter te blijven.
 
 **`komt` is drie-standig** (`ja` / `nee` / `misschien`), niet 0/1: de organisatie kan een adres ook als *misschien* markeren. Overal expliciet vergelijken.
 
@@ -85,7 +89,7 @@ De bijdrage (feest) en de eetbestelling (De Toren) zijn **gescheiden potjes**. O
 | Veld | Wat |
 |------|-----|
 | `mag`, `readonly`, `reden`, `bericht` | mag dit huis bestellen, en zo niet: waarom, in gewone taal |
-| `bestelling` | de eigen regels, opmerking en het totaal (`null` als er nog niets is) |
+| `bestelling` | de eigen regels en het totaal (`null` als er nog niets is) |
 | `dag_personen` | het eigen aantal dagdeelnemers — alleen als het huis mag bestellen, als geheugensteun bij *"voor hoeveel personen friet?"* |
 | `deadline_tekst`, `deadline_verstreken`, `contact_email` | dezelfde publieke waarden als `/api/instellingen` |
 
@@ -105,7 +109,18 @@ Verder valideert de server:
 - aantallen als gehele getallen 0–20 (daarbuiten wordt bijgeknipt, niet geweigerd);
 - snack-id's alleen tegen **actieve** snacks — een onbekend of uitgezet id valt stil weg;
 - de prijs komt altijd uit de database, nooit uit wat de client meestuurt;
-- **een bestelling moet minstens één snack bevatten.** Alleen een opmerking invullen is niet genoeg: dat leverde vroeger een bestelling van € 0,00 op die wél in de lijst voor De Toren belandde. Zowel de server (HTTP 400 `lege_bestelling`) als het formulier weigeren dat nu, en `test/lege-bestelling.test.js` bewaakt allebei.
+- **een bestelling moet minstens één snack bevatten.** Een inzending zonder regels leverde vroeger een bestelling van € 0,00 op die wél in de lijst voor De Toren belandde. Zowel de server (HTTP 400 `lege_bestelling`) als het formulier weigeren dat, en `test/lege-bestelling.test.js` bewaakt allebei. Een lege inzending wist ook een bestaande bestelling niet.
+
+## Het assortiment is zoals het is
+
+Er zit **geen opmerkingveld** meer op het bestelformulier, en de server negeert een `opmerking` in de body van `POST /api/bestelling`. Aanleiding: De Toren rijdt 53 huishoudens in één keer aan en kan geen individuele wensen uitvoeren, maar een invulveld suggereert van wel — en wat erin stond kwam ongelezen op de lijst terecht. Wat er nu voor in de plaats staat:
+
+- onder het formulier één regel dat alles komt zoals De Toren het maakt, met het mailadres uit `CONTACT_EMAIL` voor wie tóch iets belangrijks te melden heeft (een allergie bijvoorbeeld);
+- bij de burgers een `omschrijving` die het per product herhaalt: *"Zoals De Toren hem maakt — aanpassen of weglaten kan niet."*
+
+**De kolom `bestelling.opmerking` blijft bestaan en wordt bewust niet leeggemaakt.** Er stond er één in (huisnummer 53, een glutenintolerantie) en die hoort niet te verdwijnen omdat het veld weggaat. Daarom raakt de UPDATE in `server.js` de kolom niet meer aan: ook als dat huis zijn bestelling nog een keer wijzigt, blijft de opmerking staan. Hij is zichtbaar op `/aanmeldingen` en in de bestellingen-CSV; nieuwe bestellingen laten hem leeg. Wie hem definitief kwijt wil, doet dat met de hand in de database — het is geen bijproduct van een deploy.
+
+> **Let op bij het doorbellen:** allergieën komen nu níét meer via het formulier binnen. Wat er ooit is doorgegeven staat in de kolom *Opmerking* op het dashboard; nieuwe meldingen komen per mail.
 
 Simpele rate-limiting per IP, in vensters van 10 minuten: 30 aanmeldingen, 30 bestellingen, 120 keer bestelstatus opvragen. Daarboven volgt HTTP 429.
 
@@ -123,15 +138,29 @@ sudo docker exec bakkumbruist node snack.js prijs frikandel 310            # pri
 sudo docker exec bakkumbruist node snack.js uit kaassouffle                # tijdelijk van de kaart
 sudo docker exec bakkumbruist node snack.js aan kaassouffle                # weer erop
 sudo docker exec bakkumbruist node snack.js naam friet "Patat"             # hernoemen
-sudo docker exec bakkumbruist node snack.js eenheid friet persoon          # per stuk <-> per persoon
+sudo docker exec bakkumbruist node snack.js omschrijving hamburger "Zoals hij is."   # regeltje eronder
+sudo docker exec bakkumbruist node snack.js omschrijving hamburger ""      # regeltje weer weg
+sudo docker exec bakkumbruist node snack.js eenheid friet persoon          # stuk | persoon | bakje
 sudo docker exec bakkumbruist node snack.js volgorde kipcorn 40            # positie in de lijst
 ```
 
-**Startassortiment:** friet € 2,90 **per persoon**, frikandel € 2,90, kroket € 3,00, kaassoufflé € 3,00 (die drie per stuk).
+**Startassortiment** (`SNACK_SEED` in `db.js`, vult alleen wat er nog niet staat):
+
+| Snack | Prijs | Eenheid |
+|-------|-------|---------|
+| Friet | € 2,90 | **per persoon** — één portie per persoon |
+| Frikandel | € 2,90 | per stuk |
+| Kroket | € 3,00 | per stuk |
+| Kaassoufflé | € 3,00 | per stuk |
+| Kipnuggets (6 stuks) | € 4,75 | **per bakje** — één bakje = 6 nuggets |
+| Hamburger | € 6,75 | per stuk — geen maatwerk |
+| Vegaburger | € 8,25 | per stuk — geen maatwerk |
 
 **Prijzen altijd in centen** (`275` = € 2,75). Het script waarschuwt als een bedrag boven € 50 uitkomt — meestal betekent dat euro's in plaats van centen. Een snack **uitzetten verwijdert niets**: bestaande bestellingen en hun bedragen blijven staan, de snack verdwijnt alleen uit het formulier.
 
-Met `--per persoon` (of `snack.js eenheid <slug> persoon`) telt een regel porties in plaats van stuks. Dat verandert alleen de vraagstelling en de weergave — het rekenwerk blijft aantal × prijs. Een bestaande bestelling houdt zijn aantal; alleen het woord eromheen verandert.
+Met `--per persoon` of `--per bakje` (of achteraf `snack.js eenheid <slug> persoon|bakje`) telt een regel porties of verpakkingen in plaats van losse stuks. Dat verandert alleen de vraagstelling en de weergave — het rekenwerk blijft aantal × prijs. Een bestaande bestelling houdt zijn aantal; alleen het woord eromheen verandert.
+
+**Een eenheid erbij** is één regel in `EENHEDEN` (`db.js`) plus die waarde toestaan in de `CHECK` op `snack.eenheid` en in `eenheidUit()` van `snack.js`. Alle plekken die de eenheid gebruiken — formulier, kolomkoppen, CSV-achtervoegsel, de lijst voor De Toren — lezen de woorden uit die tabel en hoeven niets te weten van de nieuwe waarde.
 
 ## Data bekijken, back-uppen, terugzetten
 
@@ -257,6 +286,10 @@ voor de administratie.
   hun eetbestelling staan.
 - *"Ik kan niet bestellen"* → de pagina zegt zelf waarom. Meestal: nog niet
   aangemeld, of alleen 's avonds opgegeven.
+- *"Ik heb een allergie"* of *"kan de burger zonder ui?"* → het assortiment is
+  zoals het is; De Toren maakt niets op maat. Er is daarom geen opmerkingveld
+  meer. Komt er tóch iets belangrijks binnen per mail, noteer dat dan zelf en
+  neem het mee als je belt — het staat nergens automatisch in de lijst.
 - *"Ik heb per ongeluk verkeerd besteld"* → opnieuw insturen vervangt de hele
   bestelling. Na de deadline kan dat niet meer; dan pas je het met de hand aan
   in de database, of je regelt het rechtstreeks met De Toren.
@@ -283,7 +316,7 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 5. **Wat is Bakkum Bruist?** *(wit)* — korte achtergrond, bewust pas na de praktische informatie
 6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
 
-`/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina.
+`/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina. Het formulier bouwt zichzelf uit de snacktabel; onderaan staat één regel dat alles komt zoals De Toren het maakt, met het mailadres uit `CONTACT_EMAIL` erin (door `eten.js` ingevuld, niet in de HTML gehardcodeerd).
 
 ## Lokaal draaien
 
@@ -300,7 +333,10 @@ heeft geen dependencies of netwerk nodig. Wat er nu bewaakt wordt:
 
 | Test | Bewaakt |
 |------|---------|
-| `test/lege-bestelling.test.js` | een bestelling zonder snacks wordt geweigerd, server- én client-side |
+| `test/lege-bestelling.test.js` | een bestelling zonder snacks wordt geweigerd, server- én client-side, en wist een bestaande bestelling niet |
+| `test/assortiment.test.js` | geen opmerkingveld meer in `eten.html`/`eten.js`, de server neemt er geen aan, de burgers dragen hun eigen "geen maatwerk"-regel, en de kipnuggets zeggen in naam én eenheid dat het per bakje van zes gaat |
+
+(`test/helpers.js` bevat de gedeelde opstart: server op een vrije poort, verse database in een tijdelijke map.)
 
 Draai hem na elke wijziging aan `server.js` of `eten.js`, en vóór het pushen.
 
@@ -376,4 +412,5 @@ beveiliging op zolang dezelfde bestanden publiek op GitHub staan.
 - ✅ Openbare teller (alleen unieke "komt = ja"-adressen)
 - ✅ Beveiligd dashboard `/aanmeldingen`: tracker, totalen, bestellijst voor De Toren, bestellingen per huis, CSV-exports
 - ✅ IP-whitelist: dashboard zonder wachtwoord vanaf vertrouwde IP's
+- ✅ **Geen maatwerk meer** (28-08-2026): opmerkingveld weg, burgers en kipnuggets toegevoegd, eenheid `bakje` erbij
 - ⏳ Tikkies volgen later, apart voor de bijdrage en voor het eten

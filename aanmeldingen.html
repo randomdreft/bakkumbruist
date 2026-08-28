@@ -285,11 +285,12 @@
             function getal(n) {
                 return n ? String(n) : '<span class="nul">0</span>';
             }
-            // Regel zoals je hem doorbelt: "12 personen friet" of "23× Kroket".
-            // De eenheid komt uit de database, niet uit deze code.
+            // Regel zoals je hem doorbelt: "12 personen friet", "5 bakjes
+            // kipnuggets (6 stuks)" of "23× Kroket". De eenheid komt uit de
+            // database, niet uit deze code.
             function regelTekst(n, snack) {
                 var w = (snack && snack.woorden) || { enkelvoud: 'stuk', meervoud: 'stuks' };
-                return snack && snack.eenheid === 'persoon'
+                return snack && snack.eenheid !== 'stuk'
                     ? n + ' ' + (n === 1 ? w.enkelvoud : w.meervoud) + ' ' + snack.naam.toLowerCase()
                     : n + '× ' + snack.naam;
             }
@@ -382,8 +383,11 @@
                 document.getElementById('bestel-kop').innerHTML =
                     '<th class="num">Huis</th>' +
                     snacks.map(function (s) {
+                        // Alles wat niet per stuk gaat, zegt hier in welke
+                        // eenheid het geteld wordt — 'personen', 'bakjes', …
+                        var w = s.woorden || { meervoud: 'stuks' };
                         return '<th class="num">' + esc(s.naam) +
-                            (s.eenheid === 'persoon' ? '<br><span class="kop-eenheid">personen</span>' : '') +
+                            (s.eenheid !== 'stuk' ? '<br><span class="kop-eenheid">' + esc(w.meervoud) + '</span>' : '') +
                             '</th>';
                     }).join('') +
                     '<th class="num kolomgroep">Aantal</th><th class="geld">Bedrag</th><th>Opmerking</th><th>Bijgewerkt</th>';
@@ -475,9 +479,13 @@
                 if (!laatste) return '';
                 var r = ['Bakkum Bruist — Eikenhorst, bestelling:'];
                 laatste.bestellijst.forEach(function (b) {
-                    r.push(b.eenheid === 'persoon'
-                        ? b.aantal + 'x ' + b.naam.toLowerCase() + ' (porties, 1 per persoon)'
-                        : b.aantal + 'x ' + b.naam);
+                    if (b.eenheid === 'persoon') {
+                        r.push(b.aantal + 'x ' + b.naam.toLowerCase() + ' (porties, 1 per persoon)');
+                    } else if (b.eenheid === 'bakje') {
+                        r.push(b.aantal + ' ' + (b.aantal === 1 ? 'bakje' : 'bakjes') + ' ' + b.naam.toLowerCase());
+                    } else {
+                        r.push(b.aantal + 'x ' + b.naam);
+                    }
                 });
                 r.push('Totaal: € ' + (laatste.bestellijst_totaal_cent / 100).toFixed(2).replace('.', ','));
                 return r.join('\n');

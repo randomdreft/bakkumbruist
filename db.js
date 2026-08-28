@@ -53,14 +53,28 @@ const SNACK_SEED = [
   { slug: 'frikandel', naam: 'Frikandel', omschrijving: '', prijs_cent: 290, eenheid: 'stuk', volgorde: 10 },
   { slug: 'kroket', naam: 'Kroket', omschrijving: '', prijs_cent: 300, eenheid: 'stuk', volgorde: 20 },
   { slug: 'kaassouffle', naam: 'Kaassoufflé', omschrijving: '', prijs_cent: 300, eenheid: 'stuk', volgorde: 30 },
+  // Een bakje van zes: de prijs is dus per bakje en niet per nugget. Dat komt
+  // op drie plekken terug — de eenheid ("€ 4,75 per bakje"), de naam (het
+  // enige veld dat ook de kolomkoppen, de CSV en de lijst voor De Toren
+  // haalt) en de omschrijving, die het nog een keer voorrekent.
+  { slug: 'kipnuggets', naam: 'Kipnuggets (6 stuks)', omschrijving: 'Eén bakje = 6 nuggets. Bestel je er 2, dan zijn het er 12.', prijs_cent: 475, eenheid: 'bakje', volgorde: 35 },
+  // De burgers komen kant-en-klaar van De Toren. Dat staat in de
+  // omschrijving en niet in de paginatekst, zodat het meeverhuist naar het
+  // formulier, de bevestiging en elk overzicht dat de snacktabel uitleest.
+  { slug: 'hamburger', naam: 'Hamburger', omschrijving: 'Zoals De Toren hem maakt — aanpassen of weglaten kan niet.', prijs_cent: 675, eenheid: 'stuk', volgorde: 40 },
+  { slug: 'vegaburger', naam: 'Vegaburger', omschrijving: 'Zoals De Toren hem maakt — aanpassen of weglaten kan niet.', prijs_cent: 825, eenheid: 'stuk', volgorde: 50 },
 ];
 
 // Eenheden waarin besteld wordt. Snacks tel je per stuk, friet per persoon
 // (één portie per persoon) — daar hoort ook andere vraagstelling bij, dus
 // het staat in de data en niet in de teksten.
+// Een 'bakje' is één besteleenheid met meerdere stuks erin (kipnuggets gaan
+// per zes). Hoeveel er in zo'n bakje zitten hoort in de naam — dat is het
+// enige veld dat ook de kolomkoppen, de CSV en de lijst voor De Toren haalt.
 const EENHEDEN = {
   stuk: { enkelvoud: 'stuk', meervoud: 'stuks', per: 'per stuk', vraag: 'Hoeveel?' },
   persoon: { enkelvoud: 'persoon', meervoud: 'personen', per: 'per persoon', vraag: 'Voor hoeveel personen?' },
+  bakje: { enkelvoud: 'bakje', meervoud: 'bakjes', per: 'per bakje', vraag: 'Hoeveel bakjes?' },
 };
 
 // --- Schema ---
@@ -106,7 +120,7 @@ CREATE TABLE IF NOT EXISTS snack (
   omschrijving TEXT    NOT NULL DEFAULT '',
   prijs_cent   INTEGER NOT NULL CHECK (prijs_cent >= 0),
   -- Per stuk (snacks) of per persoon (friet: één portie per persoon).
-  eenheid      TEXT    NOT NULL DEFAULT 'stuk' CHECK (eenheid IN ('stuk','persoon')),
+  eenheid      TEXT    NOT NULL DEFAULT 'stuk' CHECK (eenheid IN ('stuk','persoon','bakje')),
   actief       INTEGER NOT NULL DEFAULT 1 CHECK (actief IN (0,1)),
   volgorde     INTEGER NOT NULL DEFAULT 0
 );

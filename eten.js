@@ -16,7 +16,7 @@
     var snackLijst = document.getElementById('snack-lijst');
     var bestelError = document.getElementById('bestel-error');
     var bestelSubmit = document.getElementById('bestel-submit');
-    var opmerkingVeld = document.getElementById('f-opmerking');
+    var contactMail = document.getElementById('contact-mail');
     var bevestiging = document.getElementById('bevestiging');
     var deadlineTekst = document.getElementById('deadline-tekst');
     var deadlineRegel = document.getElementById('deadline-regel');
@@ -42,9 +42,11 @@
         var w = woorden(snack);
         return n + ' ' + (n === 1 ? w.enkelvoud : w.meervoud);
     }
-    // Regel zoals je hem zou uitspreken: "3 personen friet" of "2× Kroket".
+    // Regel zoals je hem zou uitspreken: "3 personen friet", "2 bakjes
+    // kipnuggets (6 stuks)" of "2× Kroket". Alleen losse stuks krijgen een ×;
+    // al het andere noemt zijn eenheid, anders leest een getal als stuks.
     function regelTekst(n, snack) {
-        return snack && snack.eenheid === 'persoon'
+        return snack && snack.eenheid !== 'stuk'
             ? metEenheid(n, snack) + ' ' + snack.naam.toLowerCase()
             : n + '× ' + snack.naam;
     }
@@ -54,6 +56,15 @@
         if (n % 2 === 1) return n <= 77;   // oneven 1–77
         return n >= 2 && n <= 28;           // even 2–28
     }
+
+    // Het mailadres staat in de omgeving, niet in de HTML. Meteen vullen met de
+    // fallback, en nog eens zodra /api/instellingen binnen is.
+    function zetContactLink() {
+        if (!contactMail) return;
+        contactMail.href = 'mailto:' + CONTACT_EMAIL;
+        contactMail.textContent = CONTACT_EMAIL;
+    }
+    zetContactLink();
 
     function toonHuisError(tekst) {
         huisError.textContent = tekst;
@@ -78,7 +89,7 @@
         .then(function (res) { return res.ok ? res.json() : null; })
         .then(function (data) {
             if (!data) return;
-            if (data.contact_email) CONTACT_EMAIL = data.contact_email;
+            if (data.contact_email) { CONTACT_EMAIL = data.contact_email; zetContactLink(); }
             if (data.bestel_deadline_tekst) deadlineTekst.textContent = data.bestel_deadline_tekst;
             if (data.bestel_deadline_verstreken) {
                 deadlineRegel.innerHTML = 'De besteltermijn is gesloten sinds <strong>' +
@@ -264,7 +275,6 @@
                 var el = snackLijst.querySelector('input[data-snack-id="' + r.snack_id + '"]');
                 if (el) el.value = r.aantal;
             });
-            opmerkingVeld.value = data.bestelling.opmerking || '';
             toonMelding('<p>' + huis + ': jullie hebben al besteld. Pas hieronder aan wat je wilt en verstuur opnieuw — ' +
                 'we vervangen dan de hele bestelling. Aanpassen kan tot <strong>' + esc(data.deadline_tekst) + '</strong>.</p>');
         }
@@ -286,7 +296,6 @@
                 '<li class="som"><span>Totaal</span>' +
                 '<span>' + euro(bestelling.totaal_cent) + '</span></li>' +
             '</ul>' +
-            (bestelling.opmerking ? '<p class="muted small">Jullie opmerking: ' + esc(bestelling.opmerking) + '</p>' : '') +
             '</div>';
     }
 
@@ -317,7 +326,6 @@
         bestelError.hidden = true;
 
         var regels = huidigeRegels();
-        var opmerking = opmerkingVeld.value.trim();
         if (!regels.length) {
             bestelError.textContent = 'Er staat nog niets in de bestelling. Zet minstens één snack op 1 of hoger.';
             bestelError.hidden = false;
@@ -330,7 +338,6 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 huisnummer: huidigHuis,
-                opmerking: opmerking,
                 regels: regels.map(function (r) { return { snack_id: r.snack.id, aantal: r.aantal }; })
             })
         })

@@ -11,11 +11,16 @@
 //   sudo docker exec bakkumbruist node snack.js uit kaassouffle
 //   sudo docker exec bakkumbruist node snack.js aan kaassouffle
 //   sudo docker exec bakkumbruist node snack.js naam friet "Patat"
+//   sudo docker exec bakkumbruist node snack.js omschrijving hamburger "Zoals hij is."
 //   sudo docker exec bakkumbruist node snack.js eenheid friet persoon
+//   sudo docker exec bakkumbruist node snack.js eenheid kipnuggets bakje
 //   sudo docker exec bakkumbruist node snack.js volgorde kipcorn 40
 //
-// Eenheid: 'stuk' (default) telt losse snacks, 'persoon' telt porties — het
-// formulier vraagt dan "voor hoeveel personen?" in plaats van "hoeveel?".
+// Eenheid: 'stuk' (default) telt losse snacks, 'persoon' telt porties (friet:
+// één per persoon) en 'bakje' telt verpakkingen met meerdere stuks erin
+// (kipnuggets per zes). Het formulier stelt de bijpassende vraag en zet de
+// juiste prijsregel neer — "per stuk", "per persoon" of "per bakje". Hoeveel
+// er in een bakje zit hoort in de naam: "Kipnuggets (6 stuks)".
 //
 // Prijzen altijd in CENTEN (275 = € 2,75). De wijziging is meteen live;
 // de container hoeft niet herstart te worden.
@@ -72,7 +77,8 @@ function centenUit(v) {
 function eenheidUit(v) {
   if (v === 'persoon' || v === 'personen') return 'persoon';
   if (v === 'stuk' || v === 'stuks') return 'stuk';
-  console.error("Eenheid moet 'stuk' of 'persoon' zijn, niet: " + v);
+  if (v === 'bakje' || v === 'bakjes') return 'bakje';
+  console.error("Eenheid moet 'stuk', 'persoon' of 'bakje' zijn, niet: " + v);
   process.exit(1);
 }
 
@@ -162,17 +168,33 @@ function main() {
       break;
     }
 
+    // Het regeltje onder de naam in het formulier en de bevestiging. Hier
+    // hoort in wat er over dit product te weten valt — bijvoorbeeld dat het
+    // niet aan te passen is. Lege string wist hem weer.
+    case 'omschrijving': {
+      const [slug, tekst] = rest;
+      if (!slug || tekst === undefined) {
+        console.error('Gebruik: node snack.js omschrijving <slug> "<tekst>"   (lege tekst wist hem)');
+        process.exit(1);
+      }
+      const r = zoek(db, slug);
+      db.prepare('UPDATE snack SET omschrijving = ? WHERE slug = ?').run(tekst, slug);
+      console.log(r.naam + (tekst ? ': "' + tekst + '"' : ' heeft geen omschrijving meer') + ' — meteen live.');
+      break;
+    }
+
     case 'eenheid': {
       const [slug, waarde] = rest;
       if (!slug || (waarde === undefined && !perVlag)) {
-        console.error('Gebruik: node snack.js eenheid <slug> stuk|persoon');
+        console.error('Gebruik: node snack.js eenheid <slug> stuk|persoon|bakje');
         process.exit(1);
       }
       const r = zoek(db, slug);
       const nieuw = perVlag || eenheidUit(waarde);
       db.prepare('UPDATE snack SET eenheid = ? WHERE slug = ?').run(nieuw, slug);
+      const vraag = (db_.EENHEDEN[nieuw] || db_.EENHEDEN.stuk).vraag;
       console.log(r.naam + ' wordt nu geteld per ' + nieuw +
-        (nieuw === 'persoon' ? " — het formulier vraagt 'voor hoeveel personen?'" : " — het formulier vraagt 'hoeveel?'") +
+        " — het formulier vraagt '" + vraag.toLowerCase() + "'" +
         '. Al geplaatste bestellingen houden hun aantal.');
       break;
     }
@@ -188,7 +210,7 @@ function main() {
 
     default:
       console.error('Onbekend commando: ' + commando);
-      console.error('Gebruik: lijst | toevoegen | prijs | aan | uit | naam | eenheid | volgorde');
+      console.error('Gebruik: lijst | toevoegen | prijs | aan | uit | naam | omschrijving | eenheid | volgorde');
       process.exit(1);
   }
 }

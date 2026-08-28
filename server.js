@@ -128,7 +128,11 @@ const Q = {
   nieuweBestelling: db.prepare(
     'INSERT INTO bestelling (aanmelding_id, opmerking, aangemaakt_op, bijgewerkt_op) VALUES (?, ?, ?, ?)'
   ),
-  updateBestelling: db.prepare('UPDATE bestelling SET opmerking = ?, bijgewerkt_op = ? WHERE id = ?'),
+  // De opmerking staat bewust niet in deze UPDATE: het bestelformulier heeft
+  // geen opmerkingveld meer (het assortiment is zoals het is), maar de al
+  // ingevulde opmerkingen van vóór die wijziging moeten blijven staan —
+  // ook als dat huis zijn bestelling nog een keer wijzigt.
+  updateBestelling: db.prepare('UPDATE bestelling SET bijgewerkt_op = ? WHERE id = ?'),
   verwijderBestelling: db.prepare('DELETE FROM bestelling WHERE id = ?'),
   wisRegels: db.prepare('DELETE FROM bestelregel WHERE bestelling_id = ?'),
   nieuweRegel: db.prepare(
@@ -475,7 +479,6 @@ function bestelStatusVan(huisnummer) {
     }));
     huidig = {
       regels: regels,
-      opmerking: bestelling.opmerking,
       aantal_stuks: regels.reduce((s, r) => s + r.aantal, 0),
       totaal_cent: regels.reduce((s, r) => s + r.regel_cent, 0),
       bijgewerkt_op: bestelling.bijgewerkt_op,
@@ -552,8 +555,8 @@ function handleBestelling(req, res) {
       regels.push({ snack: snack, aantal: aantal });
     }
 
-    const opmerking = (data.opmerking || '').toString().trim().slice(0, 300);
-
+    // Een opmerking in de body wordt genegeerd: alles op de kaart is zoals het
+    // is, dus er valt niets bij te bestellen dat De Toren moet aanpassen.
     if (!regels.length) {
       return json(res, 400, {
         error: 'lege_bestelling',
@@ -572,9 +575,9 @@ function handleBestelling(req, res) {
         if (bestelling) {
           updated = true;
           id = bestelling.id;
-          Q.updateBestelling.run(opmerking, tijd, id);
+          Q.updateBestelling.run(tijd, id);
         } else {
-          id = Number(Q.nieuweBestelling.run(aanmelding.id, opmerking, tijd, tijd).lastInsertRowid);
+          id = Number(Q.nieuweBestelling.run(aanmelding.id, '', tijd, tijd).lastInsertRowid);
         }
         // Regels in hun geheel vervangen — nooit optellen bij het oude.
         Q.wisRegels.run(id);
@@ -821,7 +824,9 @@ function handleBestellingenCsv(res) {
   for (const b of o.bestellingen) for (const r of b.regels) besteld.add(r.snack_id);
   const snacks = o.snacks.filter((s) => s.actief || besteld.has(s.id));
   const kop = ['huisnummer',
-    ...snacks.map((s) => s.slug + (s.eenheid === 'persoon' ? '_personen' : '_stuks')),
+    // Suffix uit de eenheid zelf, niet uit een lijstje hier: een nieuwe
+    // eenheid levert vanzelf de goede kolomnaam op (_stuks, _personen, _bakjes).
+    ...snacks.map((s) => s.slug + '_' + (EENHEDEN[s.eenheid] || EENHEDEN.stuk).meervoud),
     'aantal_totaal', 'bedrag_eur', 'geldig', 'opmerking', 'bijgewerkt_op'];
   const rijen = o.bestellingen.map((b) => {
     const perSnack = new Map(b.regels.map((r) => [r.snack_id, r.aantal]));
