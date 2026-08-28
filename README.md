@@ -39,7 +39,7 @@ SQLite op `/data/bakkumbruist.db` (Docker-volume `static-sites_bakkumbruist-data
 | `aanmelding` | één rij per huisnummer: `huisnummer` (UNIQUE), `komt`, `bron`, `naam`, `contact`, `opmerking`, `aangemaakt_op`, `bijgewerkt_op` |
 | `deelnemer` | de aantallen: `aanmelding_id` (FK, CASCADE), `leeftijdsgroep` (`tm8`/`9_13`/`14_18`/`volwassen`), `deelname` (`dag`/`avond`), `aantal`. UNIQUE op (aanmelding, groep, deelname) |
 | `snack` | het assortiment: `slug` (UNIQUE), `naam`, `omschrijving`, `prijs_cent`, `eenheid` (`stuk`/`persoon`), `actief`, `volgorde` |
-| `bestelling` | één rij per huis: `aanmelding_id` (FK, UNIQUE), `opmerking` (historisch, zie hieronder), tijdstempels |
+| `bestelling` | één rij per huis: `aanmelding_id` (FK, UNIQUE), tijdstempels. (De kolom `opmerking` staat nog in het schema maar wordt nergens meer gelezen of geschreven — zie hieronder.) |
 | `bestelregel` | `bestelling_id` (FK, CASCADE), `snack_id` (FK), `aantal`, `prijs_cent_bij_bestelling`. UNIQUE op (bestelling, snack) |
 | `meta` | sleutel/waarde, o.a. de markering dat de JSON-migratie gedaan is |
 
@@ -118,9 +118,9 @@ Er zit **geen opmerkingveld** meer op het bestelformulier, en de server negeert 
 - onder het formulier één regel dat alles komt zoals De Toren het maakt, met het mailadres uit `CONTACT_EMAIL` voor wie tóch iets belangrijks te melden heeft (een allergie bijvoorbeeld);
 - bij de burgers een `omschrijving` die het per product herhaalt: *"Zoals De Toren hem maakt — aanpassen of weglaten kan niet."*
 
-**De kolom `bestelling.opmerking` blijft bestaan en wordt bewust niet leeggemaakt.** Er stond er één in (huisnummer 53, een glutenintolerantie) en die hoort niet te verdwijnen omdat het veld weggaat. Daarom raakt de UPDATE in `server.js` de kolom niet meer aan: ook als dat huis zijn bestelling nog een keer wijzigt, blijft de opmerking staan. Hij is zichtbaar op `/aanmeldingen` en in de bestellingen-CSV; nieuwe bestellingen laten hem leeg. Wie hem definitief kwijt wil, doet dat met de hand in de database — het is geen bijproduct van een deploy.
+**De kolom `bestelling.opmerking` is leeg en wordt nergens meer gebruikt.** Er stond één regel in — die bleek testinvoer en is op 28-08-2026 gewist (back-up ervóór: `~/bakkumbruist-backups/bakkumbruist-2026-08-28-voor-wissen-opmerkingen.db`). Daarna is de kolom ook uit het dashboard en uit de bestellingen-CSV gehaald: een kolom die voor alle 53 huizen altijd leeg blijft, is alleen maar ruis. De kolom zelf staat nog in het schema (`NOT NULL DEFAULT ''`) maar wordt niet gelezen en niet geschreven; hem droppen zou een tabelmigratie kosten en levert niets op.
 
-> **Let op bij het doorbellen:** allergieën komen nu níét meer via het formulier binnen. Wat er ooit is doorgegeven staat in de kolom *Opmerking* op het dashboard; nieuwe meldingen komen per mail.
+> **Let op bij het doorbellen:** allergieën en andere wensen komen niet meer via het formulier binnen, alleen nog per mail. Noteer die zelf en neem ze mee als je belt — ze staan nergens automatisch in de lijst.
 
 Simpele rate-limiting per IP, in vensters van 10 minuten: 30 aanmeldingen, 30 bestellingen, 120 keer bestelstatus opvragen. Daarboven volgt HTTP 429.
 
@@ -290,6 +290,9 @@ voor de administratie.
   zoals het is; De Toren maakt niets op maat. Er is daarom geen opmerkingveld
   meer. Komt er tóch iets belangrijks binnen per mail, noteer dat dan zelf en
   neem het mee als je belt — het staat nergens automatisch in de lijst.
+- *"Moet ik saus of een broodje bestellen?"* → nee, allebei niet. Die staan er
+  gewoon: mayonaise, curry en ketchup, en broodjes om je snack op te doen. Dat
+  staat ook boven aan het bestelformulier.
 - *"Ik heb per ongeluk verkeerd besteld"* → opnieuw insturen vervangt de hele
   bestelling. Na de deadline kan dat niet meer; dan pas je het met de hand aan
   in de database, of je regelt het rechtstreeks met De Toren.
@@ -316,7 +319,7 @@ Allemaal in `/opt/static-sites/.env`, doorgegeven via `docker-compose.yml`. Wijz
 5. **Wat is Bakkum Bruist?** *(wit)* — korte achtergrond, bewust pas na de praktische informatie
 6. **Doe mee** *(duinzand)* — comité + WhatsApp + mailcontact
 
-`/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina. Het formulier bouwt zichzelf uit de snacktabel; onderaan staat één regel dat alles komt zoals De Toren het maakt, met het mailadres uit `CONTACT_EMAIL` erin (door `eten.js` ingevuld, niet in de HTML gehardcodeerd).
+`/eten` is een aparte pagina in dezelfde huisstijl, met een link terug naar de hoofdpagina. Bovenaan staat wat je *niet* hoeft te bestellen omdat het er gewoon is (saus en broodjes). Het formulier bouwt zichzelf uit de snacktabel; onderaan staat één regel dat alles komt zoals De Toren het maakt, met het mailadres uit `CONTACT_EMAIL` erin (door `eten.js` ingevuld, niet in de HTML gehardcodeerd).
 
 ## Lokaal draaien
 
@@ -412,5 +415,5 @@ beveiliging op zolang dezelfde bestanden publiek op GitHub staan.
 - ✅ Openbare teller (alleen unieke "komt = ja"-adressen)
 - ✅ Beveiligd dashboard `/aanmeldingen`: tracker, totalen, bestellijst voor De Toren, bestellingen per huis, CSV-exports
 - ✅ IP-whitelist: dashboard zonder wachtwoord vanaf vertrouwde IP's
-- ✅ **Geen maatwerk meer** (28-08-2026): opmerkingveld weg, burgers en kipnuggets toegevoegd, eenheid `bakje` erbij
+- ✅ **Geen maatwerk meer** (28-08-2026): opmerkingveld weg (kolom leeg en uit dashboard + CSV), burgers en kipnuggets toegevoegd, eenheid `bakje` erbij
 - ⏳ Tikkies volgen later, apart voor de bijdrage en voor het eten

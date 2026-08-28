@@ -126,12 +126,11 @@ const Q = {
   bestellingVan: db.prepare('SELECT * FROM bestelling WHERE aanmelding_id = ?'),
   alleBestellingen: db.prepare('SELECT * FROM bestelling'),
   nieuweBestelling: db.prepare(
-    'INSERT INTO bestelling (aanmelding_id, opmerking, aangemaakt_op, bijgewerkt_op) VALUES (?, ?, ?, ?)'
+    'INSERT INTO bestelling (aanmelding_id, aangemaakt_op, bijgewerkt_op) VALUES (?, ?, ?)'
   ),
-  // De opmerking staat bewust niet in deze UPDATE: het bestelformulier heeft
-  // geen opmerkingveld meer (het assortiment is zoals het is), maar de al
-  // ingevulde opmerkingen van vóór die wijziging moeten blijven staan —
-  // ook als dat huis zijn bestelling nog een keer wijzigt.
+  // Geen opmerking meer: het assortiment is zoals het is, dus er valt niets
+  // bij te bestellen. De kolom staat nog in het schema (NOT NULL DEFAULT '')
+  // maar wordt nergens meer gelezen of geschreven — zie de README.
   updateBestelling: db.prepare('UPDATE bestelling SET bijgewerkt_op = ? WHERE id = ?'),
   verwijderBestelling: db.prepare('DELETE FROM bestelling WHERE id = ?'),
   wisRegels: db.prepare('DELETE FROM bestelregel WHERE bestelling_id = ?'),
@@ -577,7 +576,7 @@ function handleBestelling(req, res) {
           id = bestelling.id;
           Q.updateBestelling.run(tijd, id);
         } else {
-          id = Number(Q.nieuweBestelling.run(aanmelding.id, '', tijd, tijd).lastInsertRowid);
+          id = Number(Q.nieuweBestelling.run(aanmelding.id, tijd, tijd).lastInsertRowid);
         }
         // Regels in hun geheel vervangen — nooit optellen bij het oude.
         Q.wisRegels.run(id);
@@ -624,7 +623,7 @@ function bouwOverzicht() {
   const bestellingPerAanmelding = new Map();
   const bestellingById = new Map();
   for (const b of Q.alleBestellingen.all()) {
-    const rec = { id: b.id, aanmelding_id: b.aanmelding_id, opmerking: b.opmerking,
+    const rec = { id: b.id, aanmelding_id: b.aanmelding_id,
       bijgewerkt_op: b.bijgewerkt_op, regels: [], bedrag_cent: 0, aantal_stuks: 0 };
     bestellingPerAanmelding.set(b.aanmelding_id, rec);
     bestellingById.set(b.id, rec);
@@ -745,7 +744,6 @@ function bouwOverzicht() {
         regels: b.regels,
         aantal_stuks: b.aantal_stuks,
         bedrag_cent: b.bedrag_cent,
-        opmerking: b.opmerking,
         bijgewerkt_op: b.bijgewerkt_op,
         geldig: r.mag_eten,
       };
@@ -827,14 +825,14 @@ function handleBestellingenCsv(res) {
     // Suffix uit de eenheid zelf, niet uit een lijstje hier: een nieuwe
     // eenheid levert vanzelf de goede kolomnaam op (_stuks, _personen, _bakjes).
     ...snacks.map((s) => s.slug + '_' + (EENHEDEN[s.eenheid] || EENHEDEN.stuk).meervoud),
-    'aantal_totaal', 'bedrag_eur', 'geldig', 'opmerking', 'bijgewerkt_op'];
+    'aantal_totaal', 'bedrag_eur', 'geldig', 'bijgewerkt_op'];
   const rijen = o.bestellingen.map((b) => {
     const perSnack = new Map(b.regels.map((r) => [r.snack_id, r.aantal]));
     return [
       b.huisnummer,
       ...snacks.map((s) => perSnack.get(s.id) || 0),
       b.aantal_stuks, eur(b.bedrag_cent), b.geldig ? 'ja' : 'nee',
-      b.opmerking, b.bijgewerkt_op,
+      b.bijgewerkt_op,
     ];
   });
   // Slotregel met het totaal dat naar De Toren gaat.
@@ -843,7 +841,7 @@ function handleBestellingenCsv(res) {
     const t = o.bestellijst.find((x) => x.slug === s.slug);
     totaalRij.push(t ? t.aantal : 0);
   }
-  totaalRij.push(o.bestellijst_stuks, eur(o.bestellijst_totaal_cent), '', '', '');
+  totaalRij.push(o.bestellijst_stuks, eur(o.bestellijst_totaal_cent), '', '');
   stuurCsv(res, 'bakkum-bruist-bestellingen.csv', [kop, ...rijen, totaalRij]);
 }
 

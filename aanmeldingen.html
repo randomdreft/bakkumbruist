@@ -390,7 +390,7 @@
                             (s.eenheid !== 'stuk' ? '<br><span class="kop-eenheid">' + esc(w.meervoud) + '</span>' : '') +
                             '</th>';
                     }).join('') +
-                    '<th class="num kolomgroep">Aantal</th><th class="geld">Bedrag</th><th>Opmerking</th><th>Bijgewerkt</th>';
+                    '<th class="num kolomgroep">Aantal</th><th class="geld">Bedrag</th><th>Bijgewerkt</th>';
                 document.getElementById('bestel-rijen').innerHTML = data.bestellingen.map(function (b) {
                     var perSnack = {};
                     b.regels.forEach(function (r) { perSnack[r.snack_id] = r.aantal; });
@@ -401,7 +401,6 @@
                         }).join('') +
                         '<td class="num kolomgroep"><strong>' + b.aantal_stuks + '</strong></td>' +
                         '<td class="geld">' + euro(b.bedrag_cent) + '</td>' +
-                        '<td>' + esc(b.opmerking) + '</td>' +
                         '<td>' + tijd(b.bijgewerkt_op) + '</td>' +
                         '</tr>';
                 }).join('') ||
